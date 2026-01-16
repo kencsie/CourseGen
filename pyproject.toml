@@ -1,7 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "coursegen"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "langchain>=0.1.0",
+    "langgraph>=0.0.1",
+    "langfuse>=2.0.0",
+    "langchain-openai>=0.0.1",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "langchain-pymupdf4llm>=0.5.0",
+    "langchain-text-splitters>=1.1.0",
+    "pymupdf-layout>=1.26.6",
+    "opencv-python>=4.12.0.88",
+    "langchain-community>=0.4.1",
+    "langchain-huggingface>=1.2.0",
+    "sentence-transformers>=5.2.0",
+    "langchain-chroma>=1.1.0",
+]
