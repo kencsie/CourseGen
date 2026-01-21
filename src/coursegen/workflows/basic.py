@@ -23,9 +23,9 @@ if __name__ == "__main__":
     langfuse_handler = CallbackHandler()
 
     result = graph.invoke(
-        {"messages": [HumanMessage("How to defeat Warden?")]},
+        {"messages": [HumanMessage("How to pass celeste chapter 9?")]},
         context={
-            "model_name": "gpt-4o-mini",
+            "model_name": "gpt-4o",
             "base_url": os.getenv("BASE_URL"),
             "openrouter_api_key": os.getenv("OPENROUTER_API_KEY"),
         },
