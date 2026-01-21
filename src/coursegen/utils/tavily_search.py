@@ -9,6 +9,6 @@ def search_node(state: State):
         query=str(state["messages"][-1].content),
         search_depth="advanced",
         include_usage=True,
-        # include_raw_content="markdown"
+        include_raw_content="markdown",
     )
     return {"retrieved_doc": response["results"]}
