@@ -1,32 +1,48 @@
+from coursegen.schemas import RoadmapValidationResult, Roadmap
 from langchain.chat_models import init_chat_model
-from coursegen.prompts.roadmap import ROADMAP_GENERATION_PROMPT
+from coursegen.prompts.roadmap import ROADMAP_GENERATION_PROMPT, ROADMAP_CRITIC_PROMPT
 from coursegen.schemas import State, ContextSchema
 from langgraph.runtime import Runtime
 
 
 def roadmap_node(state: State, runtime: Runtime[ContextSchema]):
     model = init_chat_model(
-        runtime.context.model_name,
+        model=runtime.context.model_name,
+        model_provider="openai",  # OpenRouter 使用 OpenAI-compatible API
         api_key=runtime.context.openrouter_api_key,
         base_url=runtime.context.base_url,
+        temperature=0.1,  # 使用保守的溫度，建立roadmap
     )
-    response = model.invoke(
+    model_structured = model.with_structured_output(Roadmap)
+    roadmap = model_structured.invoke(
         ROADMAP_GENERATION_PROMPT.format(
-            question=state["messages"][-1].content, retrieved_doc=state["retrieved_doc"]
+            question=state["question"],
+            user_preferences=state["user_preferences"],
+            roadmap_feedback=state.get(  # 第一次會不存在，所以用get
+                "roadmap_feedback", ""
+            ),
         )
     )
-    return {"messages": [response]}
+
+    return {"roadmap": roadmap.model_dump()}
 
 
 def roadmap_critic_node(state: State, runtime: Runtime[ContextSchema]):
     model = init_chat_model(
-        runtime.context.model_name,
+        model=runtime.context.model_name,
+        model_provider="openai",  # OpenRouter 使用 OpenAI-compatible API
         api_key=runtime.context.openrouter_api_key,
         base_url=runtime.context.base_url,
     )
-    response = model.invoke(
-        ROADMAP_GENERATION_PROMPT.format(
-            question=state["messages"][-1].content, retrieved_doc=state["retrieved_doc"]
+    model_structured = model.with_structured_output(RoadmapValidationResult)
+    response = model_structured.invoke(
+        ROADMAP_CRITIC_PROMPT.format(
+            question=state["question"],
+            user_preferences=state["user_preferences"],
+            roadmap=state["roadmap"],
         )
     )
-    return {"messages": [response]}
+    return {
+        "roadmap_feedback": response.feedback,
+        "roadmap_is_valid": response.is_valid,
+    }
