@@ -34,8 +34,8 @@ class DifficultyLevel(str, Enum):
 class LearningGoal(str, Enum):
     QUICK_START = "Quick Start (快速入門/速成)"
     DEEP_DIVE = "Deep Dive (深入精通/底層原理)"
-    PROJECT_BASED = "Project Based (實作導向/做中學)"
-    EXAM_PREP = "Exam/Interview Prep (考試或面試準備)"
+    SKILL_APPLICATION = "Skill Application (技能應用/實戰演練)"
+    TARGETED_REVIEW = "Targeted Review (目標複習/弱點加強)"
 
 
 class Language(str, Enum):
