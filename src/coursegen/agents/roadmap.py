@@ -21,28 +21,10 @@ def roadmap_node(state: State, runtime: Runtime[ContextSchema]):
             roadmap_feedback=state.get(  # 第一次會不存在，所以用get
                 "roadmap_feedback", ""
             ),
+            roadmap=state.get(  # 第一次會不存在，所以用get
+                "roadmap", ""
+            ),
         )
     )
 
     return {"roadmap": roadmap.model_dump()}
-
-
-def roadmap_critic_node(state: State, runtime: Runtime[ContextSchema]):
-    model = init_chat_model(
-        model=runtime.context.model_name,
-        model_provider="openai",  # OpenRouter 使用 OpenAI-compatible API
-        api_key=runtime.context.openrouter_api_key,
-        base_url=runtime.context.base_url,
-    )
-    model_structured = model.with_structured_output(RoadmapValidationResult)
-    response = model_structured.invoke(
-        ROADMAP_CRITIC_PROMPT.format(
-            question=state["question"],
-            user_preferences=state["user_preferences"],
-            roadmap=state["roadmap"],
-        )
-    )
-    return {
-        "roadmap_feedback": response.feedback,
-        "roadmap_is_valid": response.is_valid,
-    }
