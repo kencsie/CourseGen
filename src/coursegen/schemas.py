@@ -1,18 +1,19 @@
-from typing import List
+from operator import add
+from typing import List, Optional, Annotated
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
 from enum import Enum
-
-
 from typing import TypedDict
 
 
 class State(TypedDict):
     question: str  # 使用者的問題
     user_preferences: str  # 使用者學習偏好
-    roadmap: dict  # 生成的roadmap
-    roadmap_feedback: str  # 評論者的roadmap回饋
+    roadmap: Optional[dict]  # 生成的roadmap
+    critics: Annotated[list[dict], add]
+    roadmap_feedback: list[dict] # 評論者的roadmap回饋
     roadmap_is_valid: bool  # roadmap是否通過驗證
+    validation_metadata: Optional[dict] # 驗證元數據（比如贊同與反對的數量）
 
 
 @dataclass
@@ -20,7 +21,9 @@ class ContextSchema:
     model_name: str
     base_url: str
     openrouter_api_key: str
-
+    critic_1_model: str = "anthropic/claude-3.5-sonnet"                    
+    critic_2_model: str = "openai/gpt-4o"        
+    critic_3_model: str = "google/gemini-2.5-flash-thinking-exp"
 
 class DifficultyLevel(str, Enum):
     BEGINNER = "Beginner (新手 - 從零開始)"
@@ -31,8 +34,6 @@ class DifficultyLevel(str, Enum):
 class LearningGoal(str, Enum):
     QUICK_START = "Quick Start (快速入門/速成)"
     DEEP_DIVE = "Deep Dive (深入精通/底層原理)"
-    SKILL_APPLICATION = "Skill Application (技能應用/實戰演練)"
-    TARGETED_REVIEW = "Targeted Review (目標複習/弱點加強)"
 
 
 class Language(str, Enum):
@@ -75,5 +76,7 @@ class Roadmap(BaseModel):
 
 
 class RoadmapValidationResult(BaseModel):
-    is_valid: bool = Field(description="路線圖是否通過審核")
-    feedback: str = Field(description="路線圖審核意見")
+    critic_name: str = Field(description="Critic名稱(critic_1/critic_2/critic_3)")
+    model_name: str = Field(description="LLM模型名稱")
+    feedback: str = Field(description="詳細回饋")        
+    is_valid: bool = Field(description="驗證結果")
