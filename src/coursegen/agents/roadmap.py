@@ -27,4 +27,7 @@ def roadmap_node(state: State, runtime: Runtime[ContextSchema]):
         )
     )
 
-    return {"roadmap": roadmap.model_dump()}
+    return {
+        "roadmap": roadmap.model_dump(),
+        "critics": []  # 清空上一輪的 critics 結果
+    }

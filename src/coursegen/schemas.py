@@ -1,4 +1,3 @@
-from operator import add
 from typing import List, Optional, Annotated
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
@@ -6,11 +5,22 @@ from enum import Enum
 from typing import TypedDict
 
 
+def critics_reducer(current: list[dict], new: list[dict]) -> list[dict]:
+    """
+    自定義 reducer 用於 critics 字段：
+    - 如果 new 是空列表 []，則清空 current（返回空列表）
+    - 否則將 new 追加到 current（add 行為）
+    """
+    if new == []:  # 空列表作為清空信號
+        return []
+    return current + new
+
+
 class State(TypedDict):
     question: str  # 使用者的問題
     user_preferences: str  # 使用者學習偏好
     roadmap: Optional[dict]  # 生成的roadmap
-    critics: Annotated[list[dict], add]
+    critics: Annotated[list[dict], critics_reducer]
     roadmap_feedback: list[dict] # 評論者的roadmap回饋
     roadmap_is_valid: bool  # roadmap是否通過驗證
     validation_metadata: Optional[dict] # 驗證元數據（比如贊同與反對的數量）
