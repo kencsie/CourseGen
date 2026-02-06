@@ -24,4 +24,7 @@ dependencies = [
     "sentence-transformers>=5.2.0",
     "langchain-chroma>=1.1.0",
     "tavily-python>=0.7.19",
+    "streamlit>=1.30.0",
+    "streamlit-agraph>=0.0.45",
+    "pandas>=2.1.0",
 ]
