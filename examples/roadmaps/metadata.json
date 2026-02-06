@@ -1,0 +1,37 @@
+{
+  "examples": [
+    {
+      "id": "react_beginner_zh_tw",
+      "filename": "react_beginner_zh_tw.json",
+      "display_name": "React.js 基礎入門",
+      "description": "適合新手的 React 快速入門路徑",
+      "difficulty": "BEGINNER",
+      "goal": "QUICK_START",
+      "language": "ZH_TW",
+      "node_count": 10,
+      "tags": ["前端", "React", "JavaScript"]
+    },
+    {
+      "id": "python_data_science_en",
+      "filename": "python_data_science_en.json",
+      "display_name": "Python for Data Science",
+      "description": "Comprehensive pathway to master data science with Python",
+      "difficulty": "INTERMEDIATE",
+      "goal": "DEEP_DIVE",
+      "language": "EN",
+      "node_count": 12,
+      "tags": ["Python", "Data Science", "Machine Learning"]
+    },
+    {
+      "id": "web_fullstack_beginner_zh_tw",
+      "filename": "web_fullstack_beginner_zh_tw.json",
+      "display_name": "全端網頁開發入門",
+      "description": "從零開始學習前後端網頁開發的完整路徑",
+      "difficulty": "BEGINNER",
+      "goal": "DEEP_DIVE",
+      "language": "ZH_TW",
+      "node_count": 15,
+      "tags": ["全端", "網頁開發", "前端", "後端"]
+    }
+  ]
+}

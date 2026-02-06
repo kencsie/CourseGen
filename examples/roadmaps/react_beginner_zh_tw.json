@@ -1,0 +1,65 @@
+{
+  "topic": "React.js 基礎入門",
+  "nodes": [
+    {
+      "id": "1",
+      "label": "JavaScript ES6+ 基礎",
+      "description": "學習現代 JavaScript 語法：箭頭函數、解構賦值、展開運算符、模組化等核心概念",
+      "dependencies": []
+    },
+    {
+      "id": "2",
+      "label": "React 環境設定",
+      "description": "使用 Create React App 或 Vite 建立開發環境，了解專案結構與基本配置",
+      "dependencies": ["1"]
+    },
+    {
+      "id": "3",
+      "label": "JSX 語法基礎",
+      "description": "學習 JSX 語法規則、表達式嵌入、條件渲染與列表渲染",
+      "dependencies": ["2"]
+    },
+    {
+      "id": "4",
+      "label": "React 元件基礎",
+      "description": "理解函式型元件的概念，學習元件的建立、Props 傳遞與元件組合",
+      "dependencies": ["3"]
+    },
+    {
+      "id": "5",
+      "label": "State 與事件處理",
+      "description": "使用 useState Hook 管理元件狀態，處理使用者互動事件",
+      "dependencies": ["4"]
+    },
+    {
+      "id": "6",
+      "label": "Effect Hook 與副作用",
+      "description": "學習 useEffect Hook，處理資料獲取、訂閱與清理副作用",
+      "dependencies": ["5"]
+    },
+    {
+      "id": "7",
+      "label": "表單處理",
+      "description": "實作受控元件、表單驗證與提交處理",
+      "dependencies": ["5"]
+    },
+    {
+      "id": "8",
+      "label": "React Router 路由",
+      "description": "使用 React Router 實現單頁應用的路由導航",
+      "dependencies": ["6", "7"]
+    },
+    {
+      "id": "9",
+      "label": "API 整合",
+      "description": "使用 fetch 或 axios 與後端 API 互動，處理非同步資料流",
+      "dependencies": ["6"]
+    },
+    {
+      "id": "10",
+      "label": "簡易專案實作",
+      "description": "整合所學知識，建立一個完整的 Todo App 或部落格應用",
+      "dependencies": ["8", "9"]
+    }
+  ]
+}

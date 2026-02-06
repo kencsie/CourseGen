@@ -18,6 +18,11 @@ def init_session_state():
         "generation_metadata": {},  # Store time, iterations, etc.
         "is_generating": False,  # Whether roadmap is currently being generated
 
+        # Example mode
+        "is_example_mode": False,  # Whether viewing an example roadmap
+        "current_example_id": None,  # Which example is currently loaded
+        "prefill_from_example": None,  # Example metadata for pre-filling form
+
         # Error handling
         "error_message": None,  # Store error messages
     }
@@ -34,3 +39,5 @@ def reset_roadmap_state():
     st.session_state.node_progress = {}
     st.session_state.generation_metadata = {}
     st.session_state.error_message = None
+    st.session_state.is_example_mode = False
+    st.session_state.current_example_id = None

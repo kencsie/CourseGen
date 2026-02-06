@@ -1,0 +1,77 @@
+{
+  "topic": "Python for Data Science",
+  "nodes": [
+    {
+      "id": "1",
+      "label": "Python Fundamentals",
+      "description": "Master Python basics: data types, control flow, functions, and object-oriented programming",
+      "dependencies": []
+    },
+    {
+      "id": "2",
+      "label": "NumPy Essentials",
+      "description": "Learn array manipulation, broadcasting, linear algebra operations, and vectorization",
+      "dependencies": ["1"]
+    },
+    {
+      "id": "3",
+      "label": "Pandas for Data Manipulation",
+      "description": "Master DataFrames, data cleaning, transformation, grouping, and time series operations",
+      "dependencies": ["2"]
+    },
+    {
+      "id": "4",
+      "label": "Data Visualization",
+      "description": "Create insightful visualizations using Matplotlib, Seaborn, and Plotly",
+      "dependencies": ["3"]
+    },
+    {
+      "id": "5",
+      "label": "Statistical Analysis",
+      "description": "Apply descriptive and inferential statistics, hypothesis testing, and probability distributions",
+      "dependencies": ["3"]
+    },
+    {
+      "id": "6",
+      "label": "SQL and Databases",
+      "description": "Query relational databases, perform joins, aggregations, and integrate with pandas",
+      "dependencies": ["3"]
+    },
+    {
+      "id": "7",
+      "label": "Machine Learning Basics",
+      "description": "Understand supervised vs unsupervised learning, model evaluation, and cross-validation",
+      "dependencies": ["5"]
+    },
+    {
+      "id": "8",
+      "label": "Scikit-learn Foundation",
+      "description": "Implement regression, classification, and clustering algorithms using scikit-learn",
+      "dependencies": ["7"]
+    },
+    {
+      "id": "9",
+      "label": "Feature Engineering",
+      "description": "Learn feature scaling, encoding, selection, and dimensionality reduction techniques",
+      "dependencies": ["8"]
+    },
+    {
+      "id": "10",
+      "label": "Model Optimization",
+      "description": "Master hyperparameter tuning, ensemble methods, and model interpretation",
+      "dependencies": ["8", "9"]
+    },
+    {
+      "id": "11",
+      "label": "Deep Learning Intro",
+      "description": "Build neural networks with TensorFlow/Keras, understand backpropagation and optimization",
+      "dependencies": ["10"]
+    },
+    {
+      "id": "12",
+      "label": "End-to-End Project",
+      "description": "Complete a full data science project: from data collection to model deployment",
+      "dependencies": ["4", "6", "10", "11"]
+    }
+  ]
+}

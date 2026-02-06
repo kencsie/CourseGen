@@ -1,0 +1,95 @@
+{
+  "topic": "全端網頁開發入門",
+  "nodes": [
+    {
+      "id": "1",
+      "label": "HTML 與語義化標籤",
+      "description": "學習 HTML5 基礎、語義化標籤、表單元素與無障礙設計",
+      "dependencies": []
+    },
+    {
+      "id": "2",
+      "label": "CSS 基礎與排版",
+      "description": "掌握 CSS 選擇器、盒模型、Flexbox 與 Grid 排版系統",
+      "dependencies": ["1"]
+    },
+    {
+      "id": "3",
+      "label": "JavaScript 核心概念",
+      "description": "學習 JavaScript 基礎語法、DOM 操作、事件處理與非同步程式設計",
+      "dependencies": ["1"]
+    },
+    {
+      "id": "4",
+      "label": "響應式網頁設計",
+      "description": "使用媒體查詢、流動佈局與移動優先設計打造多裝置適配的介面",
+      "dependencies": ["2"]
+    },
+    {
+      "id": "5",
+      "label": "前端框架入門 (React/Vue)",
+      "description": "學習現代前端框架的核心概念：元件化、狀態管理與虛擬 DOM",
+      "dependencies": ["3"]
+    },
+    {
+      "id": "6",
+      "label": "Git 版本控制",
+      "description": "掌握 Git 基本操作、分支管理與 GitHub 協作流程",
+      "dependencies": []
+    },
+    {
+      "id": "7",
+      "label": "Node.js 基礎",
+      "description": "了解 Node.js 運作原理、NPM 套件管理與模組系統",
+      "dependencies": ["3"]
+    },
+    {
+      "id": "8",
+      "label": "Express.js 後端框架",
+      "description": "使用 Express 建立 RESTful API、路由處理與中介層應用",
+      "dependencies": ["7"]
+    },
+    {
+      "id": "9",
+      "label": "資料庫基礎 (MongoDB/PostgreSQL)",
+      "description": "學習 NoSQL 與關聯式資料庫的設計、查詢與 ORM 使用",
+      "dependencies": ["7"]
+    },
+    {
+      "id": "10",
+      "label": "API 設計與整合",
+      "description": "設計 RESTful API、處理驗證授權與前後端資料串接",
+      "dependencies": ["8", "9"]
+    },
+    {
+      "id": "11",
+      "label": "使用者驗證與授權",
+      "description": "實作 JWT 驗證、Session 管理與 OAuth 第三方登入",
+      "dependencies": ["10"]
+    },
+    {
+      "id": "12",
+      "label": "前後端整合",
+      "description": "串接前端框架與後端 API，處理 CORS、狀態同步與錯誤處理",
+      "dependencies": ["5", "10"]
+    },
+    {
+      "id": "13",
+      "label": "部署與 DevOps 基礎",
+      "description": "學習雲端平台部署 (Vercel/Heroku)、環境變數管理與 CI/CD 概念",
+      "dependencies": ["6", "12"]
+    },
+    {
+      "id": "14",
+      "label": "效能優化",
+      "description": "前端打包優化、圖片壓縮、快取策略與資料庫索引優化",
+      "dependencies": ["12"]
+    },
+    {
+      "id": "15",
+      "label": "全端專案實作",
+      "description": "整合前後端技術棧，建立完整的社群平台或電商應用",
+      "dependencies": ["11", "13", "14"]
+    }
+  ]
+}
