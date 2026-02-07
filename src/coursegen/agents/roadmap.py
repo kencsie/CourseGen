@@ -14,6 +14,9 @@ def roadmap_node(state: State, runtime: Runtime[ContextSchema]):
         temperature=0.1,  # 使用保守的溫度，建立roadmap
     )
     model_structured = model.with_structured_output(Roadmap)
+    # 取得知識內容
+    knowledge_context = state.get("knowledge_context") or {}
+
     roadmap = model_structured.invoke(
         ROADMAP_GENERATION_PROMPT.format(
             question=state["question"],
@@ -24,10 +27,13 @@ def roadmap_node(state: State, runtime: Runtime[ContextSchema]):
             roadmap=state.get(  # 第一次會不存在，所以用get
                 "roadmap", ""
             ),
+            external_knowledge=knowledge_context.get(  # 有可能不存在，所以用get
+                "synthesized_knowledge", ""
+            ),
         )
     )
 
     return {
         "roadmap": roadmap.model_dump(),
-        "critics": []  # 清空上一輪的 critics 結果
+        "critics": [],  # 清空上一輪的 critics 結果
     }
