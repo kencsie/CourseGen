@@ -3,6 +3,9 @@ from langchain.chat_models import init_chat_model
 from coursegen.prompts.roadmap import ROADMAP_CRITIC_PROMPT
 from coursegen.schemas import State, ContextSchema
 from langgraph.runtime import Runtime
+import logging
+
+logger = logging.getLogger(__name__)
 
 def critic_1_node(state: State, runtime: Runtime[ContextSchema]) -> dict:                                                    
     model = init_chat_model(
@@ -97,6 +100,12 @@ def aggregator_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
         "consensus_level": "unanimous" if valid_votes in [0, 3] else "majority",
         "iteration": current_iteration
     }
+
+    logger.info(
+        f"迭代次數：{current_iteration}/{runtime.context.max_iterations} | "
+        f"同意數：{metadata['valid_votes']}/{metadata['total_critics']} | "
+        f"本次狀態：{metadata['consensus_level']}"
+    )
 
     return {
         "roadmap_is_valid": is_valid,

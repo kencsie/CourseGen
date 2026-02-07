@@ -67,6 +67,14 @@ graph = builder.compile()
 if __name__ == "__main__":
     from langfuse.langchain import CallbackHandler
     from dotenv import load_dotenv
+    import logging
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='{asctime} | {name:<20} | {levelname:<8} | {message}',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        style='{'
+    )
 
     load_dotenv()
 
