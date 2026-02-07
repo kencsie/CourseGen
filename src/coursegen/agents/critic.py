@@ -73,24 +73,37 @@ def critic_3_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
         "critics": [response.model_dump()]
     }   
 
-def aggregator_node(state: State) -> dict:                                                                                   
-    """根據多數決，得出此roadmap是否正確"""                                                                                 
-                                                                                                                                                                                       
-    critics = [RoadmapValidationResult(**c) for c in state["critics"]]                                                                                                                                                                                                                                                                                 
-    valid_votes = sum(1 for c in critics if c.is_valid)                                                                      
-    is_valid = valid_votes >= 2  # 至少要2/3，才算通過                                                                               
-    feedback = [c.model_dump() for c in critics]                                                                                                                                                                                                                                                                                       
-                                                        
-    metadata = {                                                                                                             
-        "valid_votes": valid_votes,                                                                                          
-        "total_critics": 3,                                                                                                  
-        "consensus_level": "unanimous" if valid_votes in [0, 3] else "majority"                                              
-    }                                                                                                                        
-                                                                                                                                                                                                                                    
-    return {                                                                                                                 
-        "roadmap_is_valid": is_valid,                                                                                        
-        "roadmap_feedback": feedback,                                                                                        
-        "validation_metadata": metadata                                                                                      
+def aggregator_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
+    """
+    根據多數決，得出此roadmap是否正確
+    """
+
+    critics = [RoadmapValidationResult(**c) for c in state["critics"]]
+    valid_votes = sum(1 for c in critics if c.is_valid)
+    is_valid = valid_votes >= 2  # 至少要2/3，才算通過
+    feedback = [c.model_dump() for c in critics]
+    current_iteration = state.get("iteration_count", 0) + 1
+    
+    if is_valid:
+        termination_reason = "validation_passed"
+    elif current_iteration >= runtime.context.max_iterations:
+        termination_reason = f"max_iterations_reached ({runtime.context.max_iterations})"
+    else:
+        termination_reason = None
+
+    metadata = {
+        "valid_votes": valid_votes,
+        "total_critics": 3,
+        "consensus_level": "unanimous" if valid_votes in [0, 3] else "majority",
+        "iteration": current_iteration
+    }
+
+    return {
+        "roadmap_is_valid": is_valid,
+        "roadmap_feedback": feedback,
+        "validation_metadata": metadata,
+        "iteration_count": current_iteration,
+        "termination_reason": termination_reason
     }
 
 def roadmap_critic_node(state: State, runtime: Runtime[ContextSchema]):
