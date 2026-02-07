@@ -1,7 +1,13 @@
 from coursegen.schemas import Language, UserPreferences, LearningGoal, DifficultyLevel
 import os
 from coursegen.agents.roadmap import roadmap_node
-from coursegen.agents.critic import critic_1_node, critic_2_node, critic_3_node, aggregator_node
+from coursegen.agents.knowledge_search import knowledge_search_node
+from coursegen.agents.critic import (
+    critic_1_node,
+    critic_2_node,
+    critic_3_node,
+    aggregator_node,
+)
 from coursegen.schemas import State
 from langgraph.graph import StateGraph, START
 from coursegen.schemas import ContextSchema
@@ -25,34 +31,23 @@ def to_mermaid(roadmap_data):
 
 
 def conditional_edge(state: State, runtime: Runtime[ContextSchema]) -> bool:
-    return state.get("roadmap_is_valid", False) or state.get("iteration_count", 0) >= runtime.context.max_iterations
+    return (
+        state.get("roadmap_is_valid", False)
+        or state.get("iteration_count", 0) >= runtime.context.max_iterations
+    )
 
 
 builder = StateGraph(State, context_schema=ContextSchema)
 
-# ============================================================
-# TODO (Feature 3): 加入 knowledge_search_node
-# ============================================================
-# builder.add_node("knowledge_search_node", knowledge_search_node)
-
+builder.add_node("knowledge_search_node", knowledge_search_node)
 builder.add_node("roadmap_node", roadmap_node)
 builder.add_node("critic_1_node", critic_1_node)
 builder.add_node("critic_2_node", critic_2_node)
 builder.add_node("critic_3_node", critic_3_node)
 builder.add_node("aggregator_node", aggregator_node)
 
-# ============================================================
-# TODO (Feature 3): 修改 workflow 流程
-# ============================================================
-# 原本：START → roadmap_node
-# 新的：START → knowledge_search_node → roadmap_node
-#
-# 提示：
-# builder.add_edge(START, "knowledge_search_node")
-# builder.add_edge("knowledge_search_node", "roadmap_node")
-
-builder.add_edge(START, "roadmap_node")  # TODO: 改成從 knowledge_search 開始
-
+builder.add_edge(START, "knowledge_search_node")
+builder.add_edge("knowledge_search_node", "roadmap_node")
 builder.add_edge("roadmap_node", "critic_1_node")
 builder.add_edge("roadmap_node", "critic_2_node")
 builder.add_edge("roadmap_node", "critic_3_node")
@@ -71,9 +66,9 @@ if __name__ == "__main__":
 
     logging.basicConfig(
         level=logging.INFO,
-        format='{asctime} | {name:<20} | {levelname:<8} | {message}',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        style='{'
+        format="{asctime} | {name:<20} | {levelname:<8} | {message}",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        style="{",
     )
 
     load_dotenv()
@@ -90,7 +85,7 @@ if __name__ == "__main__":
         {
             "question": "How to learn present perfect continuous tense?",
             "user_preferences": prefs_novice.to_prompt_context(),
-            "iteration_count": 0
+            "iteration_count": 0,
         },
         context={
             "model_name": "google/gemini-3-flash-preview",
@@ -100,9 +95,7 @@ if __name__ == "__main__":
             "critic_2_model": "openai/gpt-4o",
             "critic_3_model": "google/gemini-3-flash-preview",
             "max_iterations": 3,
-            # TODO (Feature 3): 加入 Tavily API key
-            # ============================================================
-            # "tavily_api_key": os.getenv("TAVILY_KEY"),
+            "tavily_api_key": os.getenv("TAVILY_KEY"),
         },
         config={"callbacks": [langfuse_handler]},
     )

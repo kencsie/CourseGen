@@ -21,17 +21,12 @@ class State(TypedDict):
     user_preferences: str  # 使用者學習偏好
     roadmap: dict  # 生成的roadmap
     critics: Annotated[list[dict], critics_reducer]
-    roadmap_feedback: list[dict] # 評論者的roadmap回饋
+    roadmap_feedback: list[dict]  # 評論者的roadmap回饋
     roadmap_is_valid: bool  # roadmap是否通過驗證
-    validation_metadata: dict # 驗證元數據（比如贊同與反對的數量）
-    iteration_count: int # 迭代次數
-    termination_reason: str # 結束原因
-
-    # ============================================================
-    # TODO (Feature 3): 加入知識搜尋結果的欄位
-    # 提示：儲存從 Tavily 搜尋回來的外部知識
-    # ============================================================
-    # knowledge_context: ???  # 提示: Optional[dict] 類型
+    validation_metadata: dict  # 驗證元數據（比如贊同與反對的數量）
+    iteration_count: int  # 迭代次數
+    termination_reason: str  # 結束原因
+    knowledge_context: dict  # Tavily 知識搜尋結果
 
 
 @dataclass
@@ -39,15 +34,12 @@ class ContextSchema:
     model_name: str
     base_url: str
     openrouter_api_key: str
+    tavily_api_key: Optional[str] = None
     critic_1_model: str = "anthropic/claude-3.5-sonnet"
     critic_2_model: str = "openai/gpt-4o"
     critic_3_model: str = "google/gemini-2.5-flash-thinking-exp"
     max_iterations: int = 3
-    # ============================================================
-    # TODO (Feature 3): 加入 Tavily API key（選用）
-    # 提示：如果沒有提供，knowledge search 會被跳過
-    # ============================================================
-    # tavily_api_key: Optional[str] = ???
+
 
 class DifficultyLevel(str, Enum):
     BEGINNER = "Beginner (新手 - 從零開始)"
@@ -106,20 +98,16 @@ class RoadmapValidationResult(BaseModel):
     is_valid: bool = Field(description="驗證結果")
 
 
-# ============================================================
-# Feature 3: Knowledge Search Integration (知識搜尋整合)
-# ============================================================
-
 class SearchResult(BaseModel):
     """
     Tavily 搜尋結果
-
-    TODO: 這個 model 如何幫助 LLM 驗證資訊的真實性？
     """
+
     title: str = Field(description="搜尋結果標題")
     url: str = Field(description="來源 URL")
     content: str = Field(description="內容摘要")
     score: float = Field(description="相關性評分 (0-1)")
+    raw_content: str = Field(description="完整內容")
 
 
 class KnowledgeContext(BaseModel):
@@ -129,8 +117,7 @@ class KnowledgeContext(BaseModel):
     TODO: 思考這個 context 在 workflow 中的流動：
     knowledge_search_node → roadmap_node (作為 prompt 的一部分)
     """
+
     query: str = Field(description="搜尋查詢")
     results: List[SearchResult] = Field(description="搜尋結果")
-    synthesized_knowledge: str = Field(
-        description="LLM 整合後的知識摘要"
-    )
+    synthesized_knowledge: str = Field(description="LLM 整合後的知識摘要")
