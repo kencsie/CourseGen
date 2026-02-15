@@ -45,7 +45,7 @@ def knowledge_search_node(state: State, runtime: Runtime[ContextSchema]) -> dict
     # 格式化內容為可讀形式
     formatted_results = "\n\n".join(
         [
-            f"=== 來源 {i + 1}: {r.title} ===\n=== 關聯度分數:{r.score} ===\n{r.raw_content}"
+            f"=== 來源 {i + 1}: {r.title} ===\n=== 關聯度分數:{r.score} ===\n{r.raw_content or r.content}"
             for i, r in enumerate(search_results)
         ]
     )
