@@ -107,7 +107,7 @@ class SearchResult(BaseModel):
     url: str = Field(description="來源 URL")
     content: str = Field(description="內容摘要")
     score: float = Field(description="相關性評分 (0-1)")
-    raw_content: str = Field(description="完整內容")
+    raw_content: Optional[str] = Field(default=None, description="完整內容")
 
 
 class KnowledgeContext(BaseModel):
