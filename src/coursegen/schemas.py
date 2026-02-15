@@ -27,6 +27,14 @@ class State(TypedDict):
     iteration_count: int  # 迭代次數
     termination_reason: str  # 結束原因
     knowledge_context: dict  # Tavily 知識搜尋結果
+    # === Content generation 欄位 ===
+    content_order: list[str]  # 拓撲排序後的節點 ID 順序
+    content_current_index: int  # 目前正在處理第幾個節點 (index into content_order)
+    content_map: dict  # node_id → 生成的內容 dict
+    content_node_knowledge: dict  # 當前節點的 Tavily 搜尋結果 (synthesized text)
+    content_node_feedback: str  # 當前節點的 critic feedback
+    content_node_retries: int  # 當前節點已重試次數
+    content_failed_nodes: list[str]  # 超過重試上限的失敗節點 ID 串列
 
 
 @dataclass
@@ -39,6 +47,8 @@ class ContextSchema:
     critic_2_model: str = "openai/gpt-4o"
     critic_3_model: str = "google/gemini-2.5-flash-thinking-exp"
     max_iterations: int = 3
+    content_model: str = "google/gemini-3-flash-preview"
+    content_max_retries: int = 2
 
 
 class DifficultyLevel(str, Enum):
