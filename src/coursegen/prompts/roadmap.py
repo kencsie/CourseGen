@@ -9,12 +9,13 @@ ROADMAP_GENERATION_PROMPT = """
 4. **ID 格式**：使用短、可讀、穩定的英文/ASCII ID（例如：`setup`、`basics-1`、`advanced-patterns`）。
 
 ### 🧩 節點類型要求（必須符合）
-Roadmap 必須同時涵蓋下列五類節點（每一類至少 1 個節點）：
-A. **【先備】Prerequisites/診斷與補齊**：列出學習此主題前的最低先備知識；提供快速自我檢核（1–3 個檢核點）與缺口補救方向。
-B. **【概念】講解概念**：核心概念/核心操作/基本心智模型（Concept）。
-C. **【踩雷】踩雷與常見錯誤**：新手最常犯錯、陷阱、誤用情境與修正方向（Pitfalls）。
-D. **【比較】概念比較**：容易混淆的觀念或工具差異（A vs B、何時用哪個、取捨理由）（Comparison）。
-E. **【練習】統整練習**：用小題目/小任務/微專案整合前面內容（Integration Practice），需清楚說明練習產出或可觀察成果。
+Roadmap 必須同時涵蓋下列五類節點（每一類至少 1 個節點）。
+**每個節點必須指定 `type` 欄位**，值為以下五種之一：
+A. **prerequisite**【先備】Prerequisites/診斷與補齊：列出學習此主題前的最低先備知識；提供快速自我檢核（1–3 個檢核點）與缺口補救方向。
+B. **concept**【概念】講解概念：核心概念/核心操作/基本心智模型（Concept）。
+C. **pitfall**【踩雷】踩雷與常見錯誤：新手最常犯錯、陷阱、誤用情境與修正方向（Pitfalls）。
+D. **comparison**【比較】概念比較：容易混淆的觀念或工具差異（A vs B、何時用哪個、取捨理由）（Comparison）。
+E. **practice**【練習】統整練習：用小題目/小任務/微專案整合前面內容（Integration Practice），需清楚說明練習產出或可觀察成果。
 
 ### 🧠 內容邏輯
 1. **符合難度（Difficulty）**
@@ -59,12 +60,12 @@ ROADMAP_CRITIC_PROMPT = """
 - **循環依賴**：是否存在 A->B->A 的死結？（這是不允許的）
 
 #### 2. 節點類型多樣性 (Node Type Coverage) - CRITICAL
-Roadmap **必須**包含以下五種特定類型的節點（每種至少 1 個）：
-- **A. 先備/診斷 (Prerequisites)**：檢查前置知識。
-- **B. 概念 (Concept)**：核心知識講解。
-- **C. 踩雷 (Pitfalls)**：常見錯誤、反模式或陷阱（最常被遺漏，請嚴查）。
-- **D. 比較 (Comparison)**：A vs B 的比較或取捨。
-- **E. 練習 (Practice)**：實作或整合練習。
+Roadmap **必須**包含以下五種特定類型的節點（每種至少 1 個），且每個節點的 `type` 欄位必須正確標注：
+- **prerequisite**：先備/診斷 (Prerequisites)，檢查前置知識。
+- **concept**：概念 (Concept)，核心知識講解。
+- **pitfall**：踩雷 (Pitfalls)，常見錯誤、反模式或陷阱（最常被遺漏，請嚴查）。
+- **comparison**：比較 (Comparison)，A vs B 的比較或取捨。
+- **practice**：練習 (Practice)，實作或整合練習。
 
 #### 3. 難度與目標適配 (Difficulty & Goal Fit)
 - **難度 (Difficulty)**：
