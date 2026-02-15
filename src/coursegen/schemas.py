@@ -79,10 +79,22 @@ class UserPreferences(BaseModel):
         """
 
 
+class NodeType(str, Enum):
+    PREREQUISITE = "prerequisite"
+    CONCEPT = "concept"
+    PITFALL = "pitfall"
+    COMPARISON = "comparison"
+    PRACTICE = "practice"
+
+
 class RoadmapNode(BaseModel):
     id: str = Field(..., description="節點的獨特ID, 比如:'1', 'setup'")
     label: str = Field(..., description="節點的名稱")
     description: str = Field(..., description="一句話的總結")
+    type: NodeType = Field(
+        ...,
+        description="節點類型：prerequisite（先備知識診斷與補齊）、concept（核心概念講解）、pitfall（踩雷與常見錯誤）、comparison（概念比較）、practice（統整練習）",
+    )
     dependencies: List[str] = Field(default_factory=list, description="父節點ID串列")
 
 
