@@ -16,6 +16,16 @@ def critics_reducer(current: list[dict], new: list[dict]) -> list[dict]:
     return current + new
 
 
+def dict_merge_reducer(current: dict, new: dict) -> dict:
+    """
+    自定義 reducer 用於 dict 字段：
+    將 new 的 key-value 合併到 current 中（淺合併）。
+    """
+    merged = current.copy()
+    merged.update(new)
+    return merged
+
+
 class State(TypedDict):
     question: str  # 使用者的問題
     user_preferences: str  # 使用者學習偏好
@@ -30,7 +40,7 @@ class State(TypedDict):
     # === Content generation 欄位 ===
     content_order: list[str]  # 拓撲排序後的節點 ID 順序
     content_current_index: int  # 目前正在處理第幾個節點 (index into content_order)
-    content_map: dict  # node_id → 生成的內容 dict
+    content_map: Annotated[dict, dict_merge_reducer]  # node_id → 生成的內容 dict
     content_node_knowledge: dict  # 當前節點的 Tavily 搜尋結果 (synthesized text)
     content_node_feedback: str  # 當前節點的 critic feedback
     content_node_retries: int  # 當前節點已重試次數
