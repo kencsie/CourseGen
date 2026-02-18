@@ -2,8 +2,10 @@
 Node detail and progress tracking component.
 """
 import streamlit as st
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from datetime import datetime
+
+from coursegen.ui.components.content_renderer import render_content
 
 
 def get_node_data(roadmap_data: dict, node_id: str) -> Optional[dict]:
@@ -27,15 +29,19 @@ def render_node_detail(
     node_id: str,
     node_progress: Dict[str, dict],
     on_status_update,
+    content_map: Dict[str, dict] | None = None,
+    content_failed_nodes: List[str] | None = None,
 ) -> None:
     """
-    Render node detail view with progress tracking.
+    Render node detail view with progress tracking and teaching content.
 
     Args:
         roadmap_data: Complete roadmap data
         node_id: Selected node ID
         node_progress: Node progress dictionary
         on_status_update: Callback(node_id, new_status)
+        content_map: node_id -> content dict
+        content_failed_nodes: list of failed node IDs
     """
     # Get node data
     node_data = get_node_data(roadmap_data, node_id)
@@ -113,6 +119,13 @@ def render_node_detail(
             if st.button("🔄 重置為未開始", use_container_width=True):
                 on_status_update(node_id, "not_started")
                 st.rerun()
+
+    # Render teaching content
+    if content_failed_nodes and node_id in content_failed_nodes:
+        st.warning("⚠️ 此節點的教學內容生成失敗，請嘗試重新生成 Roadmap。")
+    elif content_map and node_id in content_map:
+        node_type = node_data.get("type", "")
+        render_content(node_type, content_map[node_id])
 
 
 def render_no_selection_message():

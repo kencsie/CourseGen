@@ -229,6 +229,8 @@ def render_main_content():
                         node_id=st.session_state.selected_node,
                         node_progress=st.session_state.node_progress,
                         on_status_update=handle_status_update,
+                        content_map=st.session_state.content_map,
+                        content_failed_nodes=st.session_state.content_failed_nodes,
                     )
                 else:
                     render_no_selection_message()
@@ -305,6 +307,8 @@ def render_main_content():
                         node_id=st.session_state.selected_node,
                         node_progress=st.session_state.node_progress,
                         on_status_update=handle_status_update,
+                        content_map=st.session_state.content_map,
+                        content_failed_nodes=st.session_state.content_failed_nodes,
                     )
                 else:
                     render_no_selection_message()
