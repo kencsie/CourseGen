@@ -11,7 +11,7 @@ def render_prerequisite(content: dict) -> None:
 
     st.markdown("#### 自我檢核清單")
     for item in content.get("checklist", []):
-        st.checkbox(item, key=f"chk_{hash(item)}", disabled=True)
+        st.markdown(f"- {item}")
 
     remediation = content.get("remediation", [])
     if remediation:
