@@ -9,8 +9,9 @@
 - **5 Node Types** — Prerequisite, Concept, Pitfall, Comparison, and Practice nodes cover different pedagogical purposes
 - **Two-Phase Generation** — Phase 1 builds and validates the DAG structure; Phase 2 generates content per node in topological order
 - **Knowledge-Augmented** — Tavily web search provides real-time knowledge for both roadmap design and content generation
-- **Interactive DAG Visualization** — Streamlit UI with clickable directed acyclic graph, node detail panels, and progress tracking
-- **Persistent Storage** — SQLite (or PostgreSQL) persistence via SQLAlchemy for saving and browsing generation history
+- **Streaming Progress** — Real-time progress bar with per-node status updates during generation (roadmap 0–30%, content 30–100%)
+- **Interactive DAG Visualization** — Streamlit UI with clickable directed acyclic graph, node detail dialog, and progress tracking
+- **Persistent Storage** — Auto-saves generations to SQLite (or PostgreSQL) via SQLAlchemy; browse and reload history from the sidebar
 - **LLM Observability** — Langfuse integration for tracing all LLM calls, latencies, and token usage
 
 ## Architecture Overview
@@ -89,10 +90,10 @@ uv run streamlit run src/coursegen/ui/app.py
 
 1. **Enter a topic** — e.g. "Learn React hooks", "Python data science"
 2. **Select preferences** — difficulty (Beginner / Intermediate / Advanced), learning goal (Quick Start / Deep Dive), language
-3. **Generate** — the system runs the two-phase workflow (~30–60 seconds)
-4. **Explore the roadmap** — click nodes on the DAG to view generated content
+3. **Generate** — the system runs the two-phase workflow with a streaming progress bar (~30–60 seconds)
+4. **Explore the roadmap** — click nodes on the DAG to view generated content in a detail dialog
 5. **Track progress** — mark nodes as in-progress or completed
-6. **Save** — persist the generation to the database for later review
+6. **Browse history** — generations are auto-saved to the database; reload or delete them from the sidebar
 
 ## 5 Node Types
 
@@ -126,11 +127,11 @@ CourseGen/
 │   │   ├── models.py           # GenerationRecord ORM model
 │   │   └── crud.py             # Save / list / load / delete operations
 │   ├── ui/                     # Streamlit web interface
-│   │   ├── app.py              # Main app (sidebar + main content)
+│   │   ├── app.py              # Main app (streaming generation + layout)
 │   │   ├── components/
 │   │   │   ├── preferences_form.py     # Difficulty / goal / language form
 │   │   │   ├── roadmap_visualizer.py   # Interactive DAG (streamlit-agraph)
-│   │   │   ├── node_detail.py          # Node metadata + content display
+│   │   │   ├── node_detail.py          # Node detail dialog overlay
 │   │   │   ├── content_renderer.py     # 5 type-specific content renderers
 │   │   │   └── history_sidebar.py      # Database history browser
 │   │   └── utils/
@@ -158,6 +159,7 @@ CourseGen/
 | **Tavily for knowledge search** | Real-time web data augments LLM knowledge; reduces hallucination |
 | **SQLite default + SQLAlchemy** | Zero-config local persistence; swap to PostgreSQL via `DATABASE_URL` |
 | **Streamlit** | Rapid prototyping with built-in state management; good enough for MVP |
+| **Streaming with `graph.stream()`** | Real-time progress feedback instead of blocking `invoke()`; better UX for long-running workflows |
 
 ## Environment Variables
 
@@ -171,6 +173,11 @@ MODEL_NAME=google/gemini-3-flash-preview
 CRITIC_1_MODEL=anthropic/claude-4.5-sonnet
 CRITIC_2_MODEL=openai/gpt-4o
 CRITIC_3_MODEL=google/gemini-3-flash-preview
+CONTENT_MODEL=google/gemini-3-flash-preview
+
+# Workflow parameters
+MAX_ITERATIONS=3           # Max roadmap generation retries
+CONTENT_MAX_RETRIES=2      # Max content retries per node
 
 # Optional: Tavily web search
 TAVILY_KEY=tvly-...
