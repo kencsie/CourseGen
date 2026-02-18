@@ -27,8 +27,6 @@ from coursegen.schemas import UserPreferences
 from coursegen.ui.components.preferences_form import render_preferences_form
 from coursegen.ui.components.roadmap_visualizer import render_roadmap_graph
 from coursegen.ui.components.node_detail import render_node_detail, render_no_selection_message
-from coursegen.ui.components.example_browser import render_example_browser
-from coursegen.ui.components.example_banner import render_example_banner
 
 # Import database
 from coursegen.db.database import init_db
@@ -36,7 +34,6 @@ from coursegen.db.crud import save_generation
 
 # Import utilities
 from coursegen.ui.utils.session_state import init_session_state, reset_roadmap_state
-from coursegen.ui.utils.example_loader import load_example_roadmap, get_example_metadata
 from coursegen.ui.components.history_sidebar import render_history_sidebar
 
 # Load environment variables
@@ -234,136 +231,57 @@ def render_main_content():
     """Render main content area."""
     st.title("🎓 CourseGen - AI Learning Roadmap Generator")
 
-    # Create tabs
-    tab1, tab2 = st.tabs(["🚀 生成 Roadmap", "📚 範例 Roadmaps"])
+    if st.session_state.roadmap:
+        # Roadmap loaded - show visualization and details
+        col1, col2 = st.columns([2, 1])
 
-    with tab1:
-        # Tab 1: Generated roadmaps
-        if st.session_state.roadmap and not st.session_state.is_example_mode:
-            # Roadmap loaded - show visualization and details
-            col1, col2 = st.columns([2, 1])
+        with col1:
+            # Render roadmap graph
+            selected_node = render_roadmap_graph(
+                st.session_state.roadmap,
+                st.session_state.node_progress
+            )
 
-            with col1:
-                # Render roadmap graph
-                selected_node = render_roadmap_graph(
-                    st.session_state.roadmap,
-                    st.session_state.node_progress
+            # Update selected node if clicked
+            if selected_node and selected_node != st.session_state.selected_node:
+                st.session_state.selected_node = selected_node
+                st.rerun()
+
+        with col2:
+            # Render node detail or instructions
+            if st.session_state.selected_node:
+                render_node_detail(
+                    roadmap_data=st.session_state.roadmap,
+                    node_id=st.session_state.selected_node,
+                    node_progress=st.session_state.node_progress,
+                    on_status_update=handle_status_update,
+                    content_map=st.session_state.content_map,
+                    content_failed_nodes=st.session_state.content_failed_nodes,
                 )
+            else:
+                render_no_selection_message()
 
-                # Update selected node if clicked
-                if selected_node and selected_node != st.session_state.selected_node:
-                    st.session_state.selected_node = selected_node
-                    st.rerun()
+    else:
+        # No roadmap loaded - show welcome message
+        st.markdown("""
+        ## 歡迎使用 CourseGen！
 
-            with col2:
-                # Render node detail or instructions
-                if st.session_state.selected_node:
-                    render_node_detail(
-                        roadmap_data=st.session_state.roadmap,
-                        node_id=st.session_state.selected_node,
-                        node_progress=st.session_state.node_progress,
-                        on_status_update=handle_status_update,
-                        content_map=st.session_state.content_map,
-                        content_failed_nodes=st.session_state.content_failed_nodes,
-                    )
-                else:
-                    render_no_selection_message()
+        CourseGen 是一個 AI 驅動的學習路徑生成系統，能夠：
 
-        else:
-            # No roadmap loaded - show welcome message
-            st.markdown("""
-            ## 歡迎使用 CourseGen！
+        - 🎯 根據您的需求自動生成結構化的學習路徑
+        - 📊 以互動式 DAG 圖表呈現學習路徑
+        - ✅ 追蹤您的學習進度
 
-            CourseGen 是一個 AI 驅動的學習路徑生成系統，能夠：
+        ### 使用教學
 
-            - 🎯 根據您的需求自動生成結構化的學習路徑
-            - 📊 以互動式 DAG 圖表呈現學習路徑
-            - ✅ 追蹤您的學習進度
+        1. 在左側側邊欄輸入您想學習的主題
+        2. 選擇難度等級、學習目標和語言
+        3. 點擊「生成 Roadmap」按鈕
+        4. 等待 30-60 秒，系統會生成個性化的學習路徑
 
-            ### 使用教學
+        """)
 
-            1. 在左側側邊欄輸入您想學習的主題
-            2. 選擇難度等級、學習目標和語言
-            3. 點擊「生成 Roadmap」按鈕
-            4. 等待 30-60 秒，系統會生成個性化的學習路徑
-
-            """)
-
-            st.info("👈 請從左側側邊欄開始")
-
-    with tab2:
-        # Tab 2: Example roadmaps
-        if st.session_state.is_example_mode and st.session_state.roadmap:
-            # Show example banner
-            example_metadata = get_example_metadata(st.session_state.current_example_id)
-
-            if example_metadata:
-                action = render_example_banner(example_metadata)
-
-                if action == "return":
-                    # Clear example state, return to browser
-                    st.session_state.is_example_mode = False
-                    st.session_state.roadmap = None
-                    st.session_state.current_example_id = None
-                    st.session_state.selected_node = None
-                    st.rerun()
-
-                elif action == "generate":
-                    # Switch to tab 1, pre-fill form
-                    st.session_state.prefill_from_example = example_metadata
-                    st.session_state.is_example_mode = False
-                    st.session_state.roadmap = None
-                    st.session_state.current_example_id = None
-                    st.session_state.selected_node = None
-                    st.info("💡 請切換到「生成 Roadmap」標籤頁，表單已預先填入範例資訊")
-                    st.rerun()
-
-            # Show example visualization and detail
-            col1, col2 = st.columns([2, 1])
-
-            with col1:
-                # Render roadmap graph
-                selected_node = render_roadmap_graph(
-                    st.session_state.roadmap,
-                    st.session_state.node_progress
-                )
-
-                # Update selected node if clicked
-                if selected_node and selected_node != st.session_state.selected_node:
-                    st.session_state.selected_node = selected_node
-                    st.rerun()
-
-            with col2:
-                # Render node detail or instructions
-                if st.session_state.selected_node:
-                    render_node_detail(
-                        roadmap_data=st.session_state.roadmap,
-                        node_id=st.session_state.selected_node,
-                        node_progress=st.session_state.node_progress,
-                        on_status_update=handle_status_update,
-                        content_map=st.session_state.content_map,
-                        content_failed_nodes=st.session_state.content_failed_nodes,
-                    )
-                else:
-                    render_no_selection_message()
-
-        else:
-            # Show example browser
-            selected_id = render_example_browser()
-
-            if selected_id:
-                # Load example into session state
-                example_data = load_example_roadmap(selected_id)
-
-                if example_data:
-                    st.session_state.roadmap = example_data
-                    st.session_state.is_example_mode = True
-                    st.session_state.current_example_id = selected_id
-                    st.session_state.node_progress = {}
-                    st.session_state.selected_node = None
-                    st.rerun()
-                else:
-                    st.error(f"❌ 無法載入範例: {selected_id}")
+        st.info("👈 請從左側側邊欄開始")
 
 
 def main():

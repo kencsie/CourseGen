@@ -65,8 +65,6 @@ def _load_record(record_id: str) -> None:
     st.session_state.current_record_id = data["id"]
     st.session_state.selected_node = None
     st.session_state.node_progress = {}
-    st.session_state.is_example_mode = False
-    st.session_state.current_example_id = None
     st.session_state.generation_metadata = {
         "elapsed_time": data.get("generation_time_sec"),
         "iterations": data.get("iteration_count"),

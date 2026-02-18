@@ -126,21 +126,17 @@ CourseGen/
 │   │   ├── models.py           # GenerationRecord ORM model
 │   │   └── crud.py             # Save / list / load / delete operations
 │   ├── ui/                     # Streamlit web interface
-│   │   ├── app.py              # Main app (sidebar + 2 tabs)
+│   │   ├── app.py              # Main app (sidebar + main content)
 │   │   ├── components/
 │   │   │   ├── preferences_form.py     # Difficulty / goal / language form
 │   │   │   ├── roadmap_visualizer.py   # Interactive DAG (streamlit-agraph)
 │   │   │   ├── node_detail.py          # Node metadata + content display
 │   │   │   ├── content_renderer.py     # 5 type-specific content renderers
-│   │   │   ├── history_sidebar.py      # Database history browser
-│   │   │   ├── example_browser.py      # Example roadmap grid
-│   │   │   └── example_banner.py       # Example mode banner
+│   │   │   └── history_sidebar.py      # Database history browser
 │   │   └── utils/
-│   │       ├── session_state.py        # Streamlit state init & reset
-│   │       └── example_loader.py       # Load example JSON files
+│   │       └── session_state.py        # Streamlit state init & reset
 │   └── utils/
 │       └── tavily_search.py
-├── examples/roadmaps/          # Pre-built example roadmaps (JSON)
 ├── data/                       # SQLite database (auto-created)
 ├── notebook/                   # Jupyter notebooks for testing
 ├── pyproject.toml
