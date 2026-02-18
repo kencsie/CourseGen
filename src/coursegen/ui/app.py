@@ -20,6 +20,10 @@ from coursegen.ui.components.node_detail import render_node_detail, render_no_se
 from coursegen.ui.components.example_browser import render_example_browser
 from coursegen.ui.components.example_banner import render_example_banner
 
+# Import database
+from coursegen.db.database import init_db
+from coursegen.db.crud import save_generation
+
 # Import utilities
 from coursegen.ui.utils.session_state import init_session_state, reset_roadmap_state
 from coursegen.ui.utils.example_loader import load_example_roadmap, get_example_metadata
@@ -132,7 +136,7 @@ def handle_status_update(node_id: str, new_status: str):
 
 
 def render_sidebar():
-    """Render sidebar with form (simplified - no database)."""
+    """Render sidebar with form, save button, and history."""
     # Preferences form
     question, preferences = render_preferences_form()
 
@@ -168,10 +172,34 @@ def render_sidebar():
                 st.session_state.is_generating = False
                 st.rerun()
 
-    st.sidebar.markdown("---")
+    # Save button — show when there's an unsaved roadmap
+    if (
+        st.session_state.roadmap
+        and not st.session_state.current_record_id
+        and not st.session_state.is_example_mode
+    ):
+        if st.sidebar.button("💾 儲存紀錄", use_container_width=True):
+            prefs = st.session_state.last_preferences
+            metadata = st.session_state.generation_metadata
+            roadmap = st.session_state.roadmap
+            record_id = save_generation(
+                topic=roadmap.get("topic", "未命名"),
+                difficulty=prefs.level.name if prefs else "UNKNOWN",
+                goal=prefs.goal.name if prefs else "UNKNOWN",
+                language=prefs.language.value if prefs else "UNKNOWN",
+                roadmap=roadmap,
+                content_map=st.session_state.content_map,
+                content_order=st.session_state.content_order,
+                content_failed_nodes=st.session_state.content_failed_nodes,
+                generation_time_sec=metadata.get("elapsed_time") if metadata else None,
+                iteration_count=metadata.get("iterations") if metadata else None,
+            )
+            st.session_state.current_record_id = record_id
+            st.sidebar.success("✅ 已儲存")
+            st.rerun()
 
-    # Session warning
-    st.sidebar.warning("⚠️ **注意**：資料僅在當前瀏覽器會話有效，關閉瀏覽器後將消失")
+    if st.session_state.current_record_id:
+        st.sidebar.caption("✅ 已儲存至資料庫")
 
     st.sidebar.markdown("---")
 
@@ -334,6 +362,9 @@ def render_main_content():
 
 def main():
     """Main application entry point."""
+    # Initialize database
+    init_db()
+
     # Initialize session state
     init_session_state()
 
