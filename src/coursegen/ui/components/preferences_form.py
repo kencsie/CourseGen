@@ -1,6 +1,7 @@
 """
 User preferences form component for Streamlit sidebar.
 """
+
 import streamlit as st
 from coursegen.schemas import UserPreferences, DifficultyLevel, LearningGoal, Language
 
@@ -18,7 +19,7 @@ def render_preferences_form() -> tuple[str, UserPreferences]:
     prefill_data = st.session_state.get("prefill_from_example")
     default_question = ""
     default_difficulty_idx = 0
-    default_goal_idx = 1
+    default_goal_idx = 0
     default_language_idx = 0
 
     if prefill_data:
@@ -26,26 +27,20 @@ def render_preferences_form() -> tuple[str, UserPreferences]:
         default_question = prefill_data.get("display_name", "")
 
         # Map difficulty
-        difficulty_map = {
-            "BEGINNER": 0,
-            "INTERMEDIATE": 1,
-            "ADVANCED": 2
-        }
-        default_difficulty_idx = difficulty_map.get(prefill_data.get("difficulty", "BEGINNER"), 0)
+        difficulty_map = {"BEGINNER": 0, "INTERMEDIATE": 1, "ADVANCED": 2}
+        default_difficulty_idx = difficulty_map.get(
+            prefill_data.get("difficulty", "BEGINNER"), 0
+        )
 
         # Map goal
-        goal_map = {
-            "QUICK_START": 0,
-            "DEEP_DIVE": 1
-        }
+        goal_map = {"QUICK_START": 0, "DEEP_DIVE": 1}
         default_goal_idx = goal_map.get(prefill_data.get("goal", "DEEP_DIVE"), 1)
 
         # Map language
-        language_map = {
-            "ZH_TW": 0,
-            "EN": 1
-        }
-        default_language_idx = language_map.get(prefill_data.get("language", "ZH_TW"), 0)
+        language_map = {"ZH_TW": 0, "EN": 1}
+        default_language_idx = language_map.get(
+            prefill_data.get("language", "ZH_TW"), 0
+        )
 
         # Clear prefill after use
         st.session_state.prefill_from_example = None
