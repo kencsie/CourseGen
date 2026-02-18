@@ -180,10 +180,10 @@ def render_sidebar():
         st.sidebar.header("📊 生成狀態")
         metadata = st.session_state.generation_metadata
 
-        if "elapsed_time" in metadata:
+        if metadata.get("elapsed_time") is not None:
             st.sidebar.metric("⏱️ 生成耗時", f"{metadata['elapsed_time']:.1f}s")
 
-        if "iterations" in metadata:
+        if metadata.get("iterations") is not None:
             st.sidebar.metric("🔄 迭代次數", metadata["iterations"])
 
         if st.session_state.roadmap:
