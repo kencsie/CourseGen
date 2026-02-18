@@ -149,8 +149,14 @@ def render_sidebar():
                 # Generate roadmap
                 result = generate_roadmap(question, preferences)
 
-                # Save to session state only
+                # Save full workflow results to session state
                 st.session_state.roadmap = result["roadmap"]
+                st.session_state.content_map = result.get("content_map", {})
+                st.session_state.content_order = result.get("content_order", [])
+                st.session_state.content_failed_nodes = result.get(
+                    "content_failed_nodes", []
+                )
+                st.session_state.last_preferences = preferences
                 st.session_state.node_progress = {}
 
                 st.sidebar.success("✅ Roadmap 已生成")
