@@ -36,8 +36,28 @@ from coursegen.db.crud import save_generation
 from coursegen.ui.utils.session_state import init_session_state, reset_roadmap_state
 from coursegen.ui.components.history_sidebar import render_history_sidebar
 
+# Langfuse observability
+from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
+
 # Load environment variables
 load_dotenv()
+
+# Node name → (中文標籤, phase)
+NODE_LABELS = {
+    # Phase 1: Roadmap
+    "knowledge_search_node": ("🔍 搜尋相關知識...", "roadmap"),
+    "roadmap_node": ("🗺️ 生成學習路徑...", "roadmap"),
+    "critic_1_node": ("🤖 評審 1 審核中...", "roadmap"),
+    "critic_2_node": ("🤖 評審 2 審核中...", "roadmap"),
+    "critic_3_node": ("🤖 評審 3 審核中...", "roadmap"),
+    "aggregator_node": ("📊 整合評審意見...", "roadmap"),
+    # Phase 2: Content
+    "content_planning_node": ("📋 規劃內容順序...", "content"),
+    "content_knowledge_search_node": ("🔎 搜尋節點知識...", "content"),
+    "content_generation_node": ("✍️ 生成教學內容...", "content"),
+    "content_critic_node": ("✅ 審核內容品質...", "content"),
+    "content_advance_node": ("➡️ 前進至下一節點...", "content"),
+}
 
 # Page configuration
 st.set_page_config(
@@ -50,24 +70,24 @@ st.set_page_config(
 
 def generate_roadmap(question: str, preferences: UserPreferences):
     """
-    Generate roadmap using LangGraph workflow.
+    Generate roadmap using LangGraph workflow with streaming progress.
 
     Args:
         question: Learning topic/question
         preferences: UserPreferences object
 
     Returns:
-        Result dictionary from graph.invoke()
+        Result dictionary (same shape as graph.invoke())
     """
-    # Show progress
     status_container = st.status("🚀 正在生成 Roadmap...", expanded=True)
 
     with status_container:
-        st.write("⏳ 初始化 AI 代理...")
+        progress_bar = st.progress(0)
+        step_text = st.empty()
+        step_text.write("⏳ 初始化 AI 代理...")
         start_time = time.time()
 
         try:
-            # Prepare context
             context = {
                 "model_name": os.getenv("MODEL_NAME", "google/gemini-3-flash-preview"),
                 "base_url": os.getenv("BASE_URL"),
@@ -81,36 +101,104 @@ def generate_roadmap(question: str, preferences: UserPreferences):
                 "content_max_retries": int(os.getenv("CONTENT_MAX_RETRIES", "2")),
             }
 
-            st.write("🤖 開始生成 roadmap...")
             st.write(f"📝 主題: {question}")
-            st.write(f"🎯 難度: {preferences.level.name}")
-            st.write(f"🎨 目標: {preferences.goal.name}")
-            st.write(f"🌐 語言: {preferences.language.value}")
+            st.write(f"🎯 難度: {preferences.level.name} ｜ 🎨 目標: {preferences.goal.name} ｜ 🌐 語言: {preferences.language.value}")
 
-            # Invoke graph
-            result = graph.invoke(
+            # --- Streaming with progress tracking ---
+            max_iterations = int(os.getenv("MAX_ITERATIONS", "3"))
+            # Roadmap phase: worst-case steps = (1 + 1 + 3 + 1) * max_iterations
+            roadmap_steps_per_iter = 6  # knowledge_search + roadmap + 3 critics + aggregator
+            est_roadmap_steps = roadmap_steps_per_iter * max_iterations
+
+            roadmap_steps_done = 0
+            content_steps_done = 0
+            total_content_steps = None  # determined after content_planning_node
+            content_node_index = 0  # current content node (0-based)
+            total_content_nodes = None
+
+            # Track the latest full state from "values" stream
+            result = {}
+
+            langfuse_handler = LangfuseCallbackHandler()
+
+            for chunk in graph.stream(
                 {
                     "question": question,
                     "user_preferences": preferences.to_prompt_context(),
                 },
                 context=context,
-            )
+                stream_mode=["updates", "values"],
+                config={"callbacks": [langfuse_handler]},
+            ):
+                stream_type, data = chunk
+
+                if stream_type == "values":
+                    # LangGraph uses reducers to correctly accumulate full state
+                    result = data
+                    continue
+
+                if stream_type != "updates":
+                    continue
+
+                node_name = list(data.keys())[0]
+
+                label_info = NODE_LABELS.get(node_name)
+                if not label_info:
+                    continue
+
+                label, phase = label_info
+
+                if phase == "roadmap":
+                    roadmap_steps_done += 1
+                    # Progress: 0% ~ 30% for roadmap phase
+                    pct = min(0.30, 0.30 * roadmap_steps_done / est_roadmap_steps)
+                    iteration = (roadmap_steps_done - 1) // roadmap_steps_per_iter + 1
+                    pct_display = int(pct * 100)
+                    step_text.write(f"**階段 1/2 — Roadmap 生成** (迭代 {iteration}) — {pct_display}%\n\n{label}")
+                    progress_bar.progress(pct)
+
+                elif phase == "content":
+                    content_steps_done += 1
+
+                    # After content_planning_node, determine total content nodes
+                    if node_name == "content_planning_node" and total_content_nodes is None:
+                        node_output = data.get("content_planning_node", {})
+                        content_order = node_output.get("content_order") or result.get("content_order", [])
+                        total_content_nodes = len(content_order) if content_order else 1
+                        # steps per node: search + generate + critic + advance
+                        steps_per_node = 4
+                        total_content_steps = 1 + total_content_nodes * steps_per_node  # +1 for planning
+
+                    if node_name == "content_advance_node":
+                        content_node_index += 1
+
+                    # Progress: 30% ~ 100% for content phase
+                    if total_content_steps and total_content_steps > 0:
+                        pct = 0.30 + 0.70 * min(1.0, content_steps_done / total_content_steps)
+                    else:
+                        pct = 0.30
+
+                    pct_display = int(min(pct, 1.0) * 100)
+                    node_info = ""
+                    if total_content_nodes and total_content_nodes > 0:
+                        current = min(content_node_index + 1, total_content_nodes)
+                        node_info = f" — 節點 {current}/{total_content_nodes}"
+                    step_text.write(f"**階段 2/2 — 內容生成**{node_info} — {pct_display}%\n\n{label}")
+                    progress_bar.progress(min(pct, 1.0))
+
+            # Stream finished
+            progress_bar.progress(1.0)
 
             end_time = time.time()
             elapsed = end_time - start_time
 
-            # Check if roadmap is valid
             if not result.get("roadmap_is_valid", False):
                 st.error("⚠️ Roadmap 驗證失敗，但仍會顯示結果")
 
-            st.write(f"✅ Roadmap 生成完成！")
-            st.write(f"⏱️ 耗時: {elapsed:.1f} 秒")
+            step_text.write(f"✅ 生成完成！耗時 {elapsed:.1f} 秒")
 
-            # Count iterations (if available in result)
             critics = result.get("critics", [])
-            st.write(f"🔄 評論迭代次數: {len(critics)}")
 
-            # Store metadata
             st.session_state.generation_metadata = {
                 "elapsed_time": elapsed,
                 "iterations": len(critics),
