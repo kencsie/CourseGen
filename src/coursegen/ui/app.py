@@ -26,7 +26,7 @@ from coursegen.schemas import UserPreferences
 # Import UI components
 from coursegen.ui.components.preferences_form import render_preferences_form
 from coursegen.ui.components.roadmap_visualizer import render_roadmap_graph
-from coursegen.ui.components.node_detail import render_node_detail, render_no_selection_message
+from coursegen.ui.components.node_detail import render_node_detail
 
 # Import database
 from coursegen.db.database import init_db
@@ -227,39 +227,38 @@ def render_sidebar():
     render_history_sidebar()
 
 
+@st.dialog("📚 節點詳情", width="large")
+def show_node_dialog():
+    """Show node detail in a dialog overlay."""
+    render_node_detail(
+        roadmap_data=st.session_state.roadmap,
+        node_id=st.session_state.selected_node,
+        node_progress=st.session_state.node_progress,
+        on_status_update=handle_status_update,
+        content_map=st.session_state.content_map,
+        content_failed_nodes=st.session_state.content_failed_nodes,
+    )
+
+
 def render_main_content():
     """Render main content area."""
     st.title("🎓 CourseGen - AI Learning Roadmap Generator")
 
     if st.session_state.roadmap:
-        # Roadmap loaded - show visualization and details
-        col1, col2 = st.columns([2, 1])
+        # DAG full-width rendering
+        selected_node = render_roadmap_graph(
+            st.session_state.roadmap,
+            st.session_state.node_progress
+        )
 
-        with col1:
-            # Render roadmap graph
-            selected_node = render_roadmap_graph(
-                st.session_state.roadmap,
-                st.session_state.node_progress
-            )
+        # Update selected node if clicked → rerun → trigger dialog
+        if selected_node and selected_node != st.session_state.selected_node:
+            st.session_state.selected_node = selected_node
+            st.rerun()
 
-            # Update selected node if clicked
-            if selected_node and selected_node != st.session_state.selected_node:
-                st.session_state.selected_node = selected_node
-                st.rerun()
-
-        with col2:
-            # Render node detail or instructions
-            if st.session_state.selected_node:
-                render_node_detail(
-                    roadmap_data=st.session_state.roadmap,
-                    node_id=st.session_state.selected_node,
-                    node_progress=st.session_state.node_progress,
-                    on_status_update=handle_status_update,
-                    content_map=st.session_state.content_map,
-                    content_failed_nodes=st.session_state.content_failed_nodes,
-                )
-            else:
-                render_no_selection_message()
+        # Show dialog when a node is selected
+        if st.session_state.selected_node:
+            show_node_dialog()
 
     else:
         # No roadmap loaded - show welcome message

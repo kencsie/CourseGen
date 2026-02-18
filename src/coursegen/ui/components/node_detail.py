@@ -127,6 +127,12 @@ def render_node_detail(
         node_type = node_data.get("type", "")
         render_content(node_type, content_map[node_id])
 
+    # Close button
+    st.markdown("---")
+    if st.button("❌ 關閉", use_container_width=True):
+        st.session_state.selected_node = None
+        st.rerun()
+
 
 def render_no_selection_message():
     """Render message when no node is selected."""
