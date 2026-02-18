@@ -23,6 +23,13 @@ def init_session_state():
         "current_example_id": None,  # Which example is currently loaded
         "prefill_from_example": None,  # Example metadata for pre-filling form
 
+        # Content generation results
+        "content_map": {},  # node_id → content dict
+        "content_order": [],  # topological order
+        "content_failed_nodes": [],  # failed node IDs
+        "current_record_id": None,  # saved DB record ID
+        "last_preferences": None,  # UserPreferences used for last generation
+
         # Error handling
         "error_message": None,  # Store error messages
     }
@@ -41,3 +48,8 @@ def reset_roadmap_state():
     st.session_state.error_message = None
     st.session_state.is_example_mode = False
     st.session_state.current_example_id = None
+    st.session_state.content_map = {}
+    st.session_state.content_order = []
+    st.session_state.content_failed_nodes = []
+    st.session_state.current_record_id = None
+    st.session_state.last_preferences = None
