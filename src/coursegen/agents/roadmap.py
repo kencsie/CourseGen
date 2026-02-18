@@ -3,9 +3,19 @@ from langchain.chat_models import init_chat_model
 from coursegen.prompts.roadmap import ROADMAP_GENERATION_PROMPT, ROADMAP_CRITIC_PROMPT
 from coursegen.schemas import State, ContextSchema
 from langgraph.runtime import Runtime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def roadmap_node(state: State, runtime: Runtime[ContextSchema]):
+    iteration = state.get("iteration_count", 0) + 1
+    logger.info(f"=== Roadmap 生成（第 {iteration} 次）| 模型: {runtime.context.model_name} ===")
+
+    roadmap_feedback = state.get("roadmap_feedback", "")
+    if roadmap_feedback:
+        logger.info(f"本次附帶 critic 回饋，共 {len(roadmap_feedback)} 條")
+
     model = init_chat_model(
         model=runtime.context.model_name,
         model_provider="openai",  # OpenRouter 使用 OpenAI-compatible API
@@ -32,6 +42,10 @@ def roadmap_node(state: State, runtime: Runtime[ContextSchema]):
             ),
         )
     )
+
+    logger.info(f"主題: {roadmap.topic} | 節點數: {len(roadmap.nodes)}")
+    node_summary = [(n.id, n.type) for n in roadmap.nodes]
+    logger.info(f"節點清單: {node_summary}")
 
     return {
         "roadmap": roadmap.model_dump(),

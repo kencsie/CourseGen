@@ -20,7 +20,7 @@ def knowledge_search_node(state: State, runtime: Runtime[ContextSchema]) -> dict
     # 設定Tavily客戶端
     tavily_client = TavilyClient(api_key=runtime.context.tavily_api_key)
 
-    logger.debug("Tavily搜尋中...")
+    logger.info(f"知識搜尋開始，query: {state.get('question')}")
 
     # 搜尋query
     response = tavily_client.search(
@@ -42,6 +42,8 @@ def knowledge_search_node(state: State, runtime: Runtime[ContextSchema]) -> dict
             )
         )
 
+    logger.info(f"Tavily 搜尋完成，取得 {len(search_results)} 筆結果")
+
     # 格式化內容為可讀形式
     formatted_results = "\n\n".join(
         [
@@ -59,13 +61,15 @@ def knowledge_search_node(state: State, runtime: Runtime[ContextSchema]) -> dict
         temperature=0.1,
     )
 
-    logger.debug("LLM統整中...")
+    logger.info("LLM 統整知識中...")
 
     response = model.invoke(
         KNOWLEDGE_SYNTHESIS_PROMPT.format(
             question=state.get("question"), search_results=formatted_results
         )
     )
+
+    logger.info(f"知識統整完成，長度: {len(str(response.content))} 字")
 
     # 回傳 KnowledgeContext
     return {
