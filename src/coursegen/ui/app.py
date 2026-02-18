@@ -27,6 +27,7 @@ from coursegen.db.crud import save_generation
 # Import utilities
 from coursegen.ui.utils.session_state import init_session_state, reset_roadmap_state
 from coursegen.ui.utils.example_loader import load_example_roadmap, get_example_metadata
+from coursegen.ui.components.history_sidebar import render_history_sidebar
 
 # Load environment variables
 load_dotenv()
@@ -222,6 +223,11 @@ def render_sidebar():
                 if prog.get("status") == "completed"
             )
             st.sidebar.metric("✅ 完成進度", f"{completed}/{total}")
+
+    st.sidebar.markdown("---")
+
+    # History sidebar
+    render_history_sidebar()
 
 
 def render_main_content():
