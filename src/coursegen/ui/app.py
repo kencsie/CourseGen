@@ -199,34 +199,8 @@ def render_sidebar():
                 st.session_state.is_generating = False
                 st.rerun()
 
-    # Save button — show when there's an unsaved roadmap
-    if (
-        st.session_state.roadmap
-        and not st.session_state.current_record_id
-        and not st.session_state.is_example_mode
-    ):
-        if st.sidebar.button("💾 儲存紀錄", use_container_width=True):
-            prefs = st.session_state.last_preferences
-            metadata = st.session_state.generation_metadata
-            roadmap = st.session_state.roadmap
-            record_id = save_generation(
-                topic=roadmap.get("topic", "未命名"),
-                difficulty=prefs.level.name if prefs else "UNKNOWN",
-                goal=prefs.goal.name if prefs else "UNKNOWN",
-                language=prefs.language.value if prefs else "UNKNOWN",
-                roadmap=roadmap,
-                content_map=st.session_state.content_map,
-                content_order=st.session_state.content_order,
-                content_failed_nodes=st.session_state.content_failed_nodes,
-                generation_time_sec=metadata.get("elapsed_time") if metadata else None,
-                iteration_count=metadata.get("iterations") if metadata else None,
-            )
-            st.session_state.current_record_id = record_id
-            st.sidebar.success("✅ 已儲存")
-            st.rerun()
-
     if st.session_state.current_record_id:
-        st.sidebar.caption("✅ 已儲存至資料庫")
+        st.sidebar.caption("✅ 已自動儲存至資料庫")
 
     st.sidebar.markdown("---")
 
