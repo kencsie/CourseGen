@@ -295,14 +295,27 @@ def content_critic_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
         temperature=0,
     )
     model_structured = model.with_structured_output(ContentValidationResult)
-    result = model_structured.invoke(formatted_prompt)
 
-    logger.info(
-        f"審核結果: {'通過' if result.is_valid else '未通過'} | "
-        f"回饋: {result.feedback[:100]}..."
-    )
+    try:
+        result = model_structured.invoke(formatted_prompt)
+    except Exception as e:
+        logger.warning(f"Critic LLM 呼叫失敗（refusal 或解析錯誤）: {e}")
+        result = None
 
     retries = state.get("content_node_retries", 0)
+
+    if result is None:
+        logger.warning("Critic 回傳 None，計入重試次數")
+        return {
+            "content_node_feedback": "Critic 無法審核此內容（模型拒絕或回傳空值），視為未通過。",
+            "content_node_retries": retries + 1,
+        }
+
+    feedback_preview = (result.feedback or "")[:100]
+    logger.info(
+        f"審核結果: {'通過' if result.is_valid else '未通過'} | "
+        f"回饋: {feedback_preview}..."
+    )
 
     return {
         "content_node_feedback": result.feedback if not result.is_valid else "",
