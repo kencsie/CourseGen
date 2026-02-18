@@ -1,11 +1,21 @@
 """
 CourseGen Streamlit UI - Main Application
 """
+import logging
 import streamlit as st
 import os
 import time
 from datetime import datetime
 from dotenv import load_dotenv
+
+# Configure logging (same format as basic.py)
+logging.basicConfig(
+    level=logging.INFO,
+    format="{asctime} | {name:<20} | {levelname:<8} | {message}",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    style="{",
+)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Import workflow
 from coursegen.workflows.basic import graph
@@ -164,7 +174,23 @@ def render_sidebar():
                 st.session_state.last_preferences = preferences
                 st.session_state.node_progress = {}
 
-                st.sidebar.success("✅ Roadmap 已生成")
+                # Auto-save to database
+                roadmap = result["roadmap"]
+                record_id = save_generation(
+                    topic=roadmap.get("topic", "未命名"),
+                    difficulty=preferences.level.name,
+                    goal=preferences.goal.name,
+                    language=preferences.language.value,
+                    roadmap=roadmap,
+                    content_map=st.session_state.content_map,
+                    content_order=st.session_state.content_order,
+                    content_failed_nodes=st.session_state.content_failed_nodes,
+                    generation_time_sec=st.session_state.generation_metadata.get("elapsed_time"),
+                    iteration_count=st.session_state.generation_metadata.get("iterations"),
+                )
+                st.session_state.current_record_id = record_id
+
+                st.sidebar.success("✅ Roadmap 已生成並儲存")
 
             except Exception as e:
                 st.sidebar.error(f"❌ 錯誤: {str(e)}")
