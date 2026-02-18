@@ -63,6 +63,10 @@ def generate_roadmap(question: str, preferences: UserPreferences):
                 "critic_1_model": os.getenv("CRITIC_1_MODEL", "anthropic/claude-4.5-sonnet"),
                 "critic_2_model": os.getenv("CRITIC_2_MODEL", "openai/gpt-4o"),
                 "critic_3_model": os.getenv("CRITIC_3_MODEL", "google/gemini-3-flash-preview"),
+                "max_iterations": int(os.getenv("MAX_ITERATIONS", "3")),
+                "tavily_api_key": os.getenv("TAVILY_KEY"),
+                "content_model": os.getenv("CONTENT_MODEL", "google/gemini-3-flash-preview"),
+                "content_max_retries": int(os.getenv("CONTENT_MAX_RETRIES", "2")),
             }
 
             st.write("🤖 開始生成 roadmap...")
