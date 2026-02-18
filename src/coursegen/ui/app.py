@@ -340,9 +340,12 @@ def render_main_content():
         )
 
         # Update selected node if clicked → rerun → trigger dialog
+        dismissed = st.session_state.pop("_dialog_dismissed", None)
         if selected_node and selected_node != st.session_state.selected_node:
-            st.session_state.selected_node = selected_node
-            st.rerun()
+            # Skip if this is the node that was just dismissed (agraph retains selection)
+            if selected_node != dismissed:
+                st.session_state.selected_node = selected_node
+                st.rerun()
 
         # Show dialog when a node is selected
         if st.session_state.selected_node:
