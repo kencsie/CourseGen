@@ -104,12 +104,14 @@ def render_node_detail(
         if status == "not_started":
             if st.button("▶️ 標記為進行中", use_container_width=True, type="primary"):
                 on_status_update(node_id, "in_progress")
+                st.session_state._dialog_internal_action = True
                 st.rerun()
 
     with col2:
         if status in ["not_started", "in_progress"]:
             if st.button("✅ 標記為已完成", use_container_width=True, type="secondary"):
                 on_status_update(node_id, "completed")
+                st.session_state._dialog_internal_action = True
                 st.rerun()
 
     # Reset button for completed nodes
@@ -118,6 +120,7 @@ def render_node_detail(
         with col1:
             if st.button("🔄 重置為未開始", use_container_width=True):
                 on_status_update(node_id, "not_started")
+                st.session_state._dialog_internal_action = True
                 st.rerun()
 
     # Render teaching content

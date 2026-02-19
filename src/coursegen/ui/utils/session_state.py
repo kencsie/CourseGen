@@ -27,6 +27,11 @@ def init_session_state():
 
         # Error handling
         "error_message": None,  # Store error messages
+
+        # Dialog dismissal tracking
+        "_dialog_dismissed": None,   # node ID of most recently dismissed dialog
+        "_dialog_was_rendered": False,    # True if show_node_dialog() ran in the previous render
+        "_dialog_internal_action": False, # True if a button inside the dialog triggered the rerun
     }
 
     for key, value in defaults.items():

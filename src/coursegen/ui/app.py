@@ -335,22 +335,39 @@ def render_main_content():
     st.title("🎓 CourseGen - AI Learning Roadmap Generator")
 
     if st.session_state.roadmap:
+        # Snapshot whether the dialog was rendered in the previous render,
+        # then reset so it's only set True if we actually render it this pass.
+        was_dialog_open = st.session_state._dialog_was_rendered
+        st.session_state._dialog_was_rendered = False
+
         # DAG full-width rendering
         selected_node = render_roadmap_graph(
             st.session_state.roadmap,
             st.session_state.node_progress
         )
 
+        # Detect outside-click dismissal:
+        # dialog was open last render, selected_node still set,
+        # and no internal dialog button triggered this rerun.
+        if (was_dialog_open
+                and st.session_state.selected_node
+                and not st.session_state._dialog_internal_action):
+            st.session_state._dialog_dismissed = st.session_state.selected_node
+            st.session_state.selected_node = None
+        st.session_state._dialog_internal_action = False  # reset for next rerun
+
         # Update selected node if clicked → rerun → trigger dialog
-        dismissed = st.session_state.pop("_dialog_dismissed", None)
+        dismissed = st.session_state._dialog_dismissed
         if selected_node and selected_node != st.session_state.selected_node:
             # Skip if this is the node that was just dismissed (agraph retains selection)
             if selected_node != dismissed:
+                st.session_state._dialog_dismissed = None  # clear — a new node was clicked
                 st.session_state.selected_node = selected_node
                 st.rerun()
 
         # Show dialog when a node is selected
         if st.session_state.selected_node:
+            st.session_state._dialog_was_rendered = True
             show_node_dialog()
 
     else:
