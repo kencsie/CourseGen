@@ -1,14 +1,14 @@
 from coursegen.schemas import RoadmapValidationResult, Roadmap
 from langchain.chat_models import init_chat_model
 from coursegen.prompts.roadmap import ROADMAP_GENERATION_PROMPT, ROADMAP_CRITIC_PROMPT
-from coursegen.schemas import State, ContextSchema
+from coursegen.schemas import RoadmapState, ContextSchema
 from langgraph.runtime import Runtime
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def roadmap_node(state: State, runtime: Runtime[ContextSchema]):
+def roadmap_node(state: RoadmapState, runtime: Runtime[ContextSchema]):
     iteration = state.get("iteration_count", 0) + 1
     logger.info(f"=== Roadmap 生成（第 {iteration} 次）| 模型: {runtime.context.model_name} ===")
 

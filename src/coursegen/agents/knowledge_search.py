@@ -1,4 +1,4 @@
-from coursegen.schemas import State, ContextSchema, KnowledgeContext, SearchResult
+from coursegen.schemas import RoadmapState, ContextSchema, KnowledgeContext, SearchResult
 from coursegen.prompts.knowledge_synthesis import KNOWLEDGE_SYNTHESIS_PROMPT
 from langgraph.runtime import Runtime
 from langchain.chat_models import init_chat_model
@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def knowledge_search_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
+def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
     """
     在生成 roadmap 前，先搜尋外部知識
     """

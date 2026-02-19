@@ -1,13 +1,13 @@
 from coursegen.schemas import RoadmapValidationResult
 from langchain.chat_models import init_chat_model
 from coursegen.prompts.roadmap import ROADMAP_CRITIC_PROMPT
-from coursegen.schemas import State, ContextSchema
+from coursegen.schemas import RoadmapState, ContextSchema
 from langgraph.runtime import Runtime
 import logging
 
 logger = logging.getLogger(__name__)
 
-def _get_external_knowledge(state: State) -> str:
+def _get_external_knowledge(state: RoadmapState) -> str:
     """Helper function to extract external knowledge from state"""
     knowledge_context = state.get("knowledge_context") or {}
     return knowledge_context.get("synthesized_knowledge", "")
@@ -27,7 +27,7 @@ def _validate_dependency_ids(roadmap: dict) -> list[str]:
     return issues
 
 
-def critic_1_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
+def critic_1_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
     logger.info(f"Critic 1 審核中（{runtime.context.critic_1_model}）")
     model = init_chat_model(
         model=runtime.context.critic_1_model,
@@ -56,7 +56,7 @@ def critic_1_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
     }
 
 
-def critic_2_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
+def critic_2_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
     logger.info(f"Critic 2 審核中（{runtime.context.critic_2_model}）")
     model = init_chat_model(
         model=runtime.context.critic_2_model,
@@ -85,7 +85,7 @@ def critic_2_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
     }
 
 
-def critic_3_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
+def critic_3_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
     logger.info(f"Critic 3 審核中（{runtime.context.critic_3_model}）")
     model = init_chat_model(
         model=runtime.context.critic_3_model,
@@ -114,7 +114,7 @@ def critic_3_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
     }
 
 
-def aggregator_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
+def aggregator_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
     """
     根據多數決，得出此roadmap是否正確
     """
@@ -171,7 +171,7 @@ def aggregator_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
         "termination_reason": termination_reason
     }
 
-def roadmap_critic_node(state: State, runtime: Runtime[ContextSchema]):
+def roadmap_critic_node(state: RoadmapState, runtime: Runtime[ContextSchema]):
     model = init_chat_model(
         model=runtime.context.model_name,
         model_provider="openai",  # OpenRouter 使用 OpenAI-compatible API

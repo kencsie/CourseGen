@@ -14,7 +14,7 @@ Content Generation Agents
 
 from collections import deque, defaultdict
 from coursegen.schemas import (
-    State,
+    ContentState,
     ContextSchema,
     NodeType,
     ContentValidationResult,
@@ -63,7 +63,7 @@ SEARCH_QUERY_TEMPLATES = {
 # ============================================================
 # Node 1: content_planning_node
 # ============================================================
-def content_planning_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
+def content_planning_node(state: ContentState, runtime: Runtime[ContextSchema]) -> dict:
     """
     拓撲排序 roadmap 節點，初始化 content generation 的 State 欄位。
 
@@ -124,7 +124,7 @@ def content_planning_node(state: State, runtime: Runtime[ContextSchema]) -> dict
 # Node 2: content_knowledge_search_node
 # ============================================================
 def content_knowledge_search_node(
-    state: State, runtime: Runtime[ContextSchema]
+    state: ContentState, runtime: Runtime[ContextSchema]
 ) -> dict:
     """
     對當前節點進行 Tavily 搜尋，取得與節點類型相關的外部知識。
@@ -173,15 +173,13 @@ def content_knowledge_search_node(
     answer = response.get("answer", "")
     logger.info(f"Tavily answer 長度: {len(answer)} 字")
 
-    return {
-        "content_node_knowledge": {"synthesized_knowledge": answer}
-    }
+    return {"content_node_knowledge": {"synthesized_knowledge": answer}}
 
 
 # ============================================================
 # Node 3: content_generation_node
 # ============================================================
-def content_generation_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
+def content_generation_node(state: ContentState, runtime: Runtime[ContextSchema]) -> dict:
     """
     根據節點類型，生成對應結構的教學內容。
 
@@ -250,7 +248,7 @@ def content_generation_node(state: State, runtime: Runtime[ContextSchema]) -> di
 # ============================================================
 # Node 4: content_critic_node
 # ============================================================
-def content_critic_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
+def content_critic_node(state: ContentState, runtime: Runtime[ContextSchema]) -> dict:
     """
     審核當前節點生成的教學內容。
 
@@ -326,7 +324,7 @@ def content_critic_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
 # ============================================================
 # Router: content_router
 # ============================================================
-def content_router(state: State, runtime: Runtime[ContextSchema]) -> str:
+def content_router(state: ContentState, runtime: Runtime[ContextSchema]) -> str:
     """
     根據 critic 結果決定下一步：
     - "advance": 通過審核，前進到下一個節點
@@ -357,7 +355,7 @@ def content_router(state: State, runtime: Runtime[ContextSchema]) -> str:
 # ============================================================
 # Node 5: content_advance_node
 # ============================================================
-def content_advance_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
+def content_advance_node(state: ContentState, runtime: Runtime[ContextSchema]) -> dict:
     """
     推進到下一個節點：
     - 更新 content_current_index
@@ -396,7 +394,7 @@ def content_advance_node(state: State, runtime: Runtime[ContextSchema]) -> dict:
 # ============================================================
 # Router: content_should_continue
 # ============================================================
-def content_should_continue(state: State, runtime: Runtime[ContextSchema]) -> str:
+def content_should_continue(state: ContentState, runtime: Runtime[ContextSchema]) -> str:
     """
     content_advance_node 之後的條件判斷：
     - "continue": 還有下一個節點，繼續搜尋 + 生成
