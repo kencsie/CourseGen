@@ -26,25 +26,45 @@ def dict_merge_reducer(current: dict, new: dict) -> dict:
     return merged
 
 
-class State(TypedDict):
-    question: str  # 使用者的問題
-    user_preferences: str  # 使用者學習偏好
-    roadmap: dict  # 生成的roadmap
+class AppState(TypedDict):
+    """Top-level graph state — 僅負責兩個 subgraph 之間的交接。"""
+    question: str
+    user_preferences: str
+    roadmap: dict                                      # RoadmapSubgraph 輸出，ContentSubgraph 輸入
+    content_order: list[str]                           # ContentSubgraph 輸出
+    content_map: Annotated[dict, dict_merge_reducer]   # ContentSubgraph 輸出
+    content_failed_nodes: list[str]                    # ContentSubgraph 輸出
+
+
+class RoadmapState(TypedDict):
+    """Roadmap subgraph 私有 state。"""
+    # 從 AppState 橋接進來
+    question: str
+    user_preferences: str
+    roadmap: dict                                      # 輸出回 AppState
+    # 私有欄位
     critics: Annotated[list[dict], critics_reducer]
-    roadmap_feedback: list[dict]  # 評論者的roadmap回饋
-    roadmap_is_valid: bool  # roadmap是否通過驗證
-    validation_metadata: dict  # 驗證元數據（比如贊同與反對的數量）
-    iteration_count: int  # 迭代次數
-    termination_reason: str  # 結束原因
-    knowledge_context: dict  # Tavily 知識搜尋結果
-    # === Content generation 欄位 ===
-    content_order: list[str]  # 拓撲排序後的節點 ID 順序
-    content_current_index: int  # 目前正在處理第幾個節點 (index into content_order)
-    content_map: Annotated[dict, dict_merge_reducer]  # node_id → 生成的內容 dict
-    content_node_knowledge: dict  # 當前節點的 Tavily 搜尋結果 (synthesized text)
-    content_node_feedback: str  # 當前節點的 critic feedback
-    content_node_retries: int  # 當前節點已重試次數
-    content_failed_nodes: list[str]  # 超過重試上限的失敗節點 ID 串列
+    roadmap_feedback: list[dict]
+    roadmap_is_valid: bool
+    validation_metadata: dict
+    iteration_count: int
+    termination_reason: str
+    knowledge_context: dict
+
+
+class ContentState(TypedDict):
+    """Content subgraph 私有 state。"""
+    # 從 AppState 橋接進來
+    roadmap: dict
+    user_preferences: str
+    content_order: list[str]                           # 輸出回 AppState
+    content_map: Annotated[dict, dict_merge_reducer]   # 輸出回 AppState
+    content_failed_nodes: list[str]                    # 輸出回 AppState
+    # 私有欄位
+    content_current_index: int
+    content_node_knowledge: dict
+    content_node_feedback: str
+    content_node_retries: int
 
 
 @dataclass
