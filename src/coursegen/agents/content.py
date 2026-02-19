@@ -229,6 +229,13 @@ def content_generation_node(
         "synthesized_knowledge", ""
     )
 
+    # 格式化來源清單
+    raw_sources = state["content_node_knowledge"].get("sources", [])
+    sources_formatted = "\n\n".join(
+        f"[{i+1}] {s['title']}\nURL: {s['url']}\n{s['snippet']}"
+        for i, s in enumerate(raw_sources)
+    ) or "（無來源資訊）"
+
     # 取得 critic feedback（重試時會有內容）
     critic_feedback = state.get("content_node_feedback", "")
     if critic_feedback:
@@ -245,6 +252,7 @@ def content_generation_node(
         node_type=node_type,
         parent_summaries=parent_summaries,
         external_knowledge=external_knowledge,
+        sources_formatted=sources_formatted,
         critic_feedback=critic_feedback or "（首次生成，無審核回饋）",
     )
 
