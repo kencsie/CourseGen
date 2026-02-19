@@ -26,6 +26,8 @@ class GenerationRecord(Base):
     )
     generation_time_sec = Column(Float, nullable=True)
     iteration_count = Column(Integer, nullable=True)
+    total_tokens = Column(Integer, nullable=True)
+    total_cost_usd = Column(Float, nullable=True)
     roadmap_json = Column(JSON, nullable=False)
     content_map_json = Column(JSON, nullable=True)
     content_order_json = Column(JSON, nullable=True)

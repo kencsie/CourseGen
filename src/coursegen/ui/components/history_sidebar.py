@@ -68,5 +68,7 @@ def _load_record(record_id: str) -> None:
     st.session_state.generation_metadata = {
         "elapsed_time": data.get("generation_time_sec"),
         "iterations": data.get("iteration_count"),
+        "total_tokens": data.get("total_tokens"),
+        "total_cost_usd": data.get("total_cost_usd"),
     }
     st.rerun()

@@ -35,6 +35,7 @@ from coursegen.db.crud import save_generation
 # Import utilities
 from coursegen.ui.utils.session_state import init_session_state, reset_roadmap_state
 from coursegen.ui.components.history_sidebar import render_history_sidebar
+from coursegen.ui.utils.cost_tracker import CostTracker
 
 # Langfuse observability
 from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
@@ -120,6 +121,7 @@ def generate_roadmap(question: str, preferences: UserPreferences):
             result = {}
 
             langfuse_handler = LangfuseCallbackHandler()
+            cost_tracker = CostTracker()
 
             for chunk in graph.stream(
                 {
@@ -128,7 +130,7 @@ def generate_roadmap(question: str, preferences: UserPreferences):
                 },
                 context=context,
                 stream_mode=["updates", "values"],
-                config={"callbacks": [langfuse_handler]},
+                config={"callbacks": [langfuse_handler, cost_tracker]},
             ):
                 stream_type, data = chunk
 
@@ -198,11 +200,14 @@ def generate_roadmap(question: str, preferences: UserPreferences):
             step_text.write(f"✅ 生成完成！耗時 {elapsed:.1f} 秒")
 
             critics = result.get("critics", [])
+            cost_summary = cost_tracker.get_summary()
 
             st.session_state.generation_metadata = {
                 "elapsed_time": elapsed,
                 "iterations": len(critics),
                 "timestamp": datetime.utcnow(),
+                "total_tokens": cost_summary["total_tokens"],
+                "total_cost_usd": cost_summary["total_cost_usd"],
             }
 
             status_container.update(label="✅ Roadmap 生成成功！", state="complete")
@@ -272,6 +277,8 @@ def render_sidebar():
                     content_failed_nodes=st.session_state.content_failed_nodes,
                     generation_time_sec=st.session_state.generation_metadata.get("elapsed_time"),
                     iteration_count=st.session_state.generation_metadata.get("iterations"),
+                    total_tokens=st.session_state.generation_metadata.get("total_tokens"),
+                    total_cost_usd=st.session_state.generation_metadata.get("total_cost_usd"),
                 )
                 st.session_state.current_record_id = record_id
 
@@ -297,17 +304,12 @@ def render_sidebar():
         if metadata.get("elapsed_time") is not None:
             st.sidebar.metric("⏱️ 生成耗時", f"{metadata['elapsed_time']:.1f}s")
 
-        if metadata.get("iterations") is not None:
-            st.sidebar.metric("🔄 迭代次數", metadata["iterations"])
+        if metadata.get("total_tokens"):
+            st.sidebar.metric("🪙 Token 用量", f"{metadata['total_tokens']:,}")
 
-        if st.session_state.roadmap:
-            # Calculate completion
-            total = len(st.session_state.roadmap.get("nodes", []))
-            completed = sum(
-                1 for prog in st.session_state.node_progress.values()
-                if prog.get("status") == "completed"
-            )
-            st.sidebar.metric("✅ 完成進度", f"{completed}/{total}")
+        cost = metadata.get("total_cost_usd")
+        if cost is not None:
+            st.sidebar.metric("💰 估計成本", f"${cost:.4f}")
 
     st.sidebar.markdown("---")
 
