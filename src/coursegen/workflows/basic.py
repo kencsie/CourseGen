@@ -17,9 +17,8 @@ from coursegen.agents.content import (
     content_advance_node,
     content_should_continue,
 )
-from coursegen.schemas import State
+from coursegen.schemas import AppState, RoadmapState, ContentState, ContextSchema
 from langgraph.graph import StateGraph, START
-from coursegen.schemas import ContextSchema
 from langgraph.runtime import Runtime
 
 
@@ -34,51 +33,56 @@ def to_mermaid(roadmap_data):
             print(f"    {parent} --> {node['id']}")
 
 
-def conditional_edge(state: State, runtime: Runtime[ContextSchema]) -> str:
-    """Roadmap 驗證後的路由：通過則進入 content generation，否則重新生成。"""
+def conditional_edge(state: RoadmapState, runtime: Runtime[ContextSchema]) -> str:
+    """Roadmap 驗證後的路由：通過則結束 subgraph（流入 content），否則重新生成。"""
     if (
         state.get("roadmap_is_valid", False)
         or state.get("iteration_count", 0) >= runtime.context.max_iterations
     ):
-        return "content_planning_node"
+        return "__end__"
     return "roadmap_node"
 
 
-builder = StateGraph(State, context_schema=ContextSchema)
+# === RoadmapSubgraph（RoadmapState）===
+roadmap_builder = StateGraph(RoadmapState, context_schema=ContextSchema)
 
-# === Roadmap 階段 ===
-builder.add_node("knowledge_search_node", knowledge_search_node)
-builder.add_node("roadmap_node", roadmap_node)
-builder.add_node("critic_1_node", critic_1_node)
-builder.add_node("critic_2_node", critic_2_node)
-builder.add_node("critic_3_node", critic_3_node)
-builder.add_node("aggregator_node", aggregator_node)
+roadmap_builder.add_node("knowledge_search_node", knowledge_search_node)
+roadmap_builder.add_node("roadmap_node", roadmap_node)
+roadmap_builder.add_node("critic_1_node", critic_1_node)
+roadmap_builder.add_node("critic_2_node", critic_2_node)
+roadmap_builder.add_node("critic_3_node", critic_3_node)
+roadmap_builder.add_node("aggregator_node", aggregator_node)
 
-builder.add_edge(START, "knowledge_search_node")
-builder.add_edge("knowledge_search_node", "roadmap_node")
-builder.add_edge("roadmap_node", "critic_1_node")
-builder.add_edge("roadmap_node", "critic_2_node")
-builder.add_edge("roadmap_node", "critic_3_node")
-builder.add_edge("critic_1_node", "aggregator_node")
-builder.add_edge("critic_2_node", "aggregator_node")
-builder.add_edge("critic_3_node", "aggregator_node")
-builder.add_conditional_edges(
+roadmap_builder.add_edge(START, "knowledge_search_node")
+roadmap_builder.add_edge("knowledge_search_node", "roadmap_node")
+roadmap_builder.add_edge("roadmap_node", "critic_1_node")
+roadmap_builder.add_edge("roadmap_node", "critic_2_node")
+roadmap_builder.add_edge("roadmap_node", "critic_3_node")
+roadmap_builder.add_edge("critic_1_node", "aggregator_node")
+roadmap_builder.add_edge("critic_2_node", "aggregator_node")
+roadmap_builder.add_edge("critic_3_node", "aggregator_node")
+roadmap_builder.add_conditional_edges(
     "aggregator_node",
     conditional_edge,
-    {"content_planning_node": "content_planning_node", "roadmap_node": "roadmap_node"},
+    {"__end__": "__end__", "roadmap_node": "roadmap_node"},
 )
 
-# === Content Generation Loop ===
-builder.add_node("content_planning_node", content_planning_node)
-builder.add_node("content_knowledge_search_node", content_knowledge_search_node)
-builder.add_node("content_generation_node", content_generation_node)
-builder.add_node("content_critic_node", content_critic_node)
-builder.add_node("content_advance_node", content_advance_node)
+roadmap_subgraph = roadmap_builder.compile()
 
-builder.add_edge("content_planning_node", "content_knowledge_search_node")
-builder.add_edge("content_knowledge_search_node", "content_generation_node")
-builder.add_edge("content_generation_node", "content_critic_node")
-builder.add_conditional_edges(
+# === ContentSubgraph（ContentState）===
+content_builder = StateGraph(ContentState, context_schema=ContextSchema)
+
+content_builder.add_node("content_planning_node", content_planning_node)
+content_builder.add_node("content_knowledge_search_node", content_knowledge_search_node)
+content_builder.add_node("content_generation_node", content_generation_node)
+content_builder.add_node("content_critic_node", content_critic_node)
+content_builder.add_node("content_advance_node", content_advance_node)
+
+content_builder.add_edge(START, "content_planning_node")
+content_builder.add_edge("content_planning_node", "content_knowledge_search_node")
+content_builder.add_edge("content_knowledge_search_node", "content_generation_node")
+content_builder.add_edge("content_generation_node", "content_critic_node")
+content_builder.add_conditional_edges(
     "content_critic_node",
     content_router,
     {
@@ -87,7 +91,7 @@ builder.add_conditional_edges(
         "retry": "content_generation_node",
     },
 )
-builder.add_conditional_edges(
+content_builder.add_conditional_edges(
     "content_advance_node",
     content_should_continue,
     {
@@ -95,6 +99,15 @@ builder.add_conditional_edges(
         "__end__": "__end__",
     },
 )
+
+content_subgraph = content_builder.compile()
+
+# === Main Graph（AppState）===
+builder = StateGraph(AppState, context_schema=ContextSchema)
+builder.add_node("roadmap", roadmap_subgraph)
+builder.add_node("content", content_subgraph)
+builder.add_edge(START, "roadmap")
+builder.add_edge("roadmap", "content")
 
 graph = builder.compile()
 
@@ -125,7 +138,6 @@ if __name__ == "__main__":
         {
             "question": "How to learn Java Edition 1.21.11?",
             "user_preferences": prefs_novice.to_prompt_context(),
-            "iteration_count": 0,
         },
         context={
             "model_name": "google/gemini-3-flash-preview",
@@ -143,9 +155,6 @@ if __name__ == "__main__":
     )
 
     to_mermaid(result["roadmap"])
-
-    print(f"\n終止原因: {result.get('termination_reason', 'unknown')}")
-    print(f"總迭代次數: {result.get('iteration_count', 0)}")
 
     # Content generation 結果
     content_map = result.get("content_map", {})
