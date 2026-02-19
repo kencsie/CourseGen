@@ -176,7 +176,23 @@ def content_knowledge_search_node(
     answer = response.get("answer", "")
     logger.info(f"Tavily answer 長度: {len(answer)} 字")
 
-    return {"content_node_knowledge": {"synthesized_knowledge": answer}}
+    sources = [
+        {
+            "title": r["title"],
+            "url": r["url"],
+            "snippet": r.get("content", ""),
+            "score": r.get("score", 0),
+        }
+        for r in response.get("results", [])
+    ]
+    logger.info(f"擷取 {len(sources)} 個來源片段")
+
+    return {
+        "content_node_knowledge": {
+            "synthesized_knowledge": answer,
+            "sources": sources,
+        }
+    }
 
 
 # ============================================================
