@@ -6,6 +6,29 @@ Content Generation Prompts
 """
 
 # ============================================================
+# Search Query Generation — 為單一節點生成 Tavily 搜尋 query
+# ============================================================
+SEARCH_QUERY_GENERATION_PROMPT = """Generate a concise search query for a Tavily web search.
+
+Topic: {topic}
+Node type: {node_type}
+Node label: {label}
+Node description: {description}
+
+Output ONE search query only (no explanation):
+- 5-10 words maximum
+- In English regardless of input language
+- Translate the node label to English and combine with the topic
+- You may include synonyms of words already in the label (e.g. "errors" → also "mistakes")
+- Do NOT add technical terms or concepts not present in the label or description
+
+Examples:
+- topic="Python", label="記憶體管理", type="concept" → "Python memory management concept"
+- topic="React", label="常見錯誤", type="pitfall" → "React common errors pitfalls"
+- topic="Minecraft Java Beta 1.0", label="環境準備與先備知識", type="prerequisite" → "Minecraft Java Beta 1.0 setup prerequisites"
+"""
+
+# ============================================================
 # Content Knowledge Synthesis — 為單一節點統整搜尋結果
 # ============================================================
 CONTENT_KNOWLEDGE_SYNTHESIS_PROMPT = """

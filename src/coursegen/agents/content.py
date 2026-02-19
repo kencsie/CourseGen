@@ -28,6 +28,7 @@ from coursegen.prompts.content import (
     CONTENT_PROMPTS,
     CONTENT_CRITIC_PROMPT,
     CONTENT_KNOWLEDGE_SYNTHESIS_PROMPT,
+    SEARCH_QUERY_GENERATION_PROMPT,
 )
 from langgraph.runtime import Runtime
 from langchain.chat_models import init_chat_model
@@ -46,17 +47,6 @@ CONTENT_MODELS = {
     "pitfall": PitfallContent,
     "comparison": ComparisonContent,
     "practice": PracticeContent,
-}
-
-# ============================================================
-# 節點類型 → Tavily 搜尋 query 模板
-# ============================================================
-SEARCH_QUERY_TEMPLATES = {
-    "prerequisite": "{topic} {label} prerequisites required knowledge",
-    "concept": "{topic} {label} tutorial guide",
-    "pitfall": "{topic} {label} common mistakes pitfalls bugs",
-    "comparison": "{topic} {label} comparison vs differences when to use",
-    "practice": "{topic} {label} exercises practice projects",
 }
 
 
@@ -151,10 +141,23 @@ def content_knowledge_search_node(
         logger.warning("TAVILY API KEY 不存在，跳過搜尋")
         return {"content_node_knowledge": {"synthesized_knowledge": ""}}
 
-    # 根據節點類型建立搜尋 query（加上 topic 確保搜尋相關性）
+    # 用 LLM 生成搜尋 query（確保英文、簡潔、相關）
     topic = state["roadmap"]["topic"]
-    query_template = SEARCH_QUERY_TEMPLATES.get(node_type, "{topic} {label} tutorial")
-    query = query_template.format(topic=topic, label=node_label)
+
+    model = init_chat_model(
+        model=runtime.context.content_model,
+        model_provider="openai",
+        api_key=runtime.context.openrouter_api_key,
+        base_url=runtime.context.base_url,
+        temperature=0,
+    )
+    query_prompt = SEARCH_QUERY_GENERATION_PROMPT.format(
+        topic=topic,
+        node_type=node_type,
+        label=node_label,
+        description=current_node.get("description", ""),
+    )
+    query = model.invoke(query_prompt).content.strip()
 
     logger.info(f"搜尋 query: {query}")
 
@@ -179,7 +182,9 @@ def content_knowledge_search_node(
 # ============================================================
 # Node 3: content_generation_node
 # ============================================================
-def content_generation_node(state: ContentState, runtime: Runtime[ContextSchema]) -> dict:
+def content_generation_node(
+    state: ContentState, runtime: Runtime[ContextSchema]
+) -> dict:
     """
     根據節點類型，生成對應結構的教學內容。
 
@@ -394,7 +399,9 @@ def content_advance_node(state: ContentState, runtime: Runtime[ContextSchema]) -
 # ============================================================
 # Router: content_should_continue
 # ============================================================
-def content_should_continue(state: ContentState, runtime: Runtime[ContextSchema]) -> str:
+def content_should_continue(
+    state: ContentState, runtime: Runtime[ContextSchema]
+) -> str:
     """
     content_advance_node 之後的條件判斷：
     - "continue": 還有下一個節點，繼續搜尋 + 生成
