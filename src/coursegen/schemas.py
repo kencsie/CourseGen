@@ -162,6 +162,13 @@ class SearchResult(BaseModel):
     raw_content: Optional[str] = Field(default=None, description="完整內容")
 
 
+class SourceRef(BaseModel):
+    """內容引用來源"""
+    title: str = Field(description="網頁標題")
+    url: str = Field(description="來源 URL")
+    snippet: str = Field(description="Tavily 擷取的相關片段")
+
+
 class KnowledgeContext(BaseModel):
     """
     外部知識上下文
@@ -192,6 +199,10 @@ class PrerequisiteContent(BaseModel):
     remediation: List[str] = Field(
         description="針對每個檢核點未通過的學習者，提供具體的補救方向或推薦資源（2-4 項）。例如：'建議先閱讀 Python 官方教程的第 3 章：資料型態'"
     )
+    sources: List[SourceRef] = Field(
+        default_factory=list,
+        description="本節點內容所引用的來源清單，與內文中的 [1][2] 標記對應"
+    )
 
 
 class ConceptContent(BaseModel):
@@ -206,6 +217,10 @@ class ConceptContent(BaseModel):
     examples: List[str] = Field(
         description="1-3 個具體的範例或程式碼片段，展示此概念的實際應用。每個範例需有簡短說明。"
     )
+    sources: List[SourceRef] = Field(
+        default_factory=list,
+        description="本節點內容所引用的來源清單，與內文中的 [1][2] 標記對應"
+    )
 
 
 class PitfallContent(BaseModel):
@@ -216,6 +231,10 @@ class PitfallContent(BaseModel):
     )
     warning_signs: List[str] = Field(
         description="2-3 個警示信號，幫助學習者在實作時早期發現自己踩到雷。例如：'如果你發現 UI 沒有更新，很可能是直接修改了 state'"
+    )
+    sources: List[SourceRef] = Field(
+        default_factory=list,
+        description="本節點內容所引用的來源清單，與內文中的 [1][2] 標記對應"
     )
 
 
@@ -229,6 +248,10 @@ class ComparisonContent(BaseModel):
     )
     when_to_use: str = Field(
         description="總結性建議（2-3 句話）：什麼情境用 A、什麼情境用 B、有沒有可以混用的情況。"
+    )
+    sources: List[SourceRef] = Field(
+        default_factory=list,
+        description="本節點內容所引用的來源清單，與內文中的 [1][2] 標記對應"
     )
 
 
@@ -246,6 +269,10 @@ class PracticeContent(BaseModel):
     )
     hints: List[str] = Field(
         description="1-3 個提示，在學習者卡住時提供方向，但不直接給出答案。"
+    )
+    sources: List[SourceRef] = Field(
+        default_factory=list,
+        description="本節點內容所引用的來源清單，與內文中的 [1][2] 標記對應"
     )
 
 
