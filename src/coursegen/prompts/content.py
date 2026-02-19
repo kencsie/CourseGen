@@ -292,7 +292,15 @@ CONTENT_CRITIC_PROMPT = """
 - 節點描述: {node_description}
 
 ### 外部知識參考（用於事實查核）
+
+**合成摘要：**
 {external_knowledge}
+
+**個別來源：**
+{sources_formatted}
+
+進行事實查核時，請引用具體的來源編號作為依據，例如：
+「來源 [2] 指出 diamond 在 1.7.10 的分佈為 Y=5-13，與內容所述不符。」
 
 ### 待審核內容
 {content}

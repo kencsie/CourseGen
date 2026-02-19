@@ -301,6 +301,13 @@ def content_critic_node(state: ContentState, runtime: Runtime[ContextSchema]) ->
     knowledge = state.get("content_node_knowledge", {})
     external_knowledge = knowledge.get("synthesized_knowledge", "")
 
+    # 格式化來源清單
+    raw_sources = knowledge.get("sources", [])
+    sources_formatted = "\n\n".join(
+        f"[{i+1}] {s['title']}\nURL: {s['url']}\n{s['snippet']}"
+        for i, s in enumerate(raw_sources)
+    ) or "（無來源資訊）"
+
     # 格式化 critic prompt
     formatted_prompt = CONTENT_CRITIC_PROMPT.format(
         topic=state["roadmap"]["topic"],
@@ -309,6 +316,7 @@ def content_critic_node(state: ContentState, runtime: Runtime[ContextSchema]) ->
         node_type=current_node["type"],
         node_description=current_node["description"],
         external_knowledge=external_knowledge or "（無外部知識）",
+        sources_formatted=sources_formatted,
         content=content_str,
         previous_feedback=state.get("content_node_feedback", ""),
     )
