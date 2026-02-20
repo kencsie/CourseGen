@@ -78,7 +78,7 @@ class ContextSchema:
     critic_3_model: str = "google/gemini-2.5-flash-thinking-exp"
     max_iterations: int = 3
     content_model: str = "google/gemini-3-flash-preview"
-    content_max_retries: int = 2
+    content_max_retries: int = 3
 
 
 class DifficultyLevel(str, Enum):
@@ -187,9 +187,17 @@ class KnowledgeContext(BaseModel):
 # ============================================================
 
 
+_REASONING_DESC = (
+    "生成前的思考過程：(1) 列出可用的來源編號及其重點內容 "
+    "(2) 規劃內容結構與引用對應 "
+    "(3) 確認不會引用超出來源數量的編號"
+)
+
+
 class PrerequisiteContent(BaseModel):
     """先備知識節點的教學內容：診斷學習者是否具備前置知識，並提供補救方向。"""
 
+    reasoning: str = Field(description=_REASONING_DESC)
     overview: str = Field(
         description="用 2-3 句話概述這個先備知識為何重要、以及它與後續學習的關聯。語氣親切但專業。"
     )
@@ -208,6 +216,7 @@ class PrerequisiteContent(BaseModel):
 class ConceptContent(BaseModel):
     """核心概念節點的教學內容：深入講解一個概念或技能，建立正確的心智模型。"""
 
+    reasoning: str = Field(description=_REASONING_DESC)
     explanation: str = Field(
         description="概念的完整講解（300-600 字）。必須包含：定義、為什麼重要、核心運作原理。使用類比或比喻幫助理解。避免只列點，要有段落式的解說。"
     )
@@ -226,6 +235,7 @@ class ConceptContent(BaseModel):
 class PitfallContent(BaseModel):
     """踩雷節點的教學內容：警告常見錯誤與陷阱，幫助學習者避開彎路。"""
 
+    reasoning: str = Field(description=_REASONING_DESC)
     pitfalls: List[str] = Field(
         description="3-5 個最常見的錯誤或陷阱。每個條目包含：(1) 錯誤描述、(2) 為什麼會犯這個錯、(3) 正確做法。格式範例：'❌ 錯誤：直接修改 state → 原因：React 使用淺比較偵測變化 → ✅ 正確：使用 setState 或展開運算子'"
     )
@@ -241,6 +251,7 @@ class PitfallContent(BaseModel):
 class ComparisonContent(BaseModel):
     """比較節點的教學內容：釐清容易混淆的概念或工具差異。"""
 
+    reasoning: str = Field(description=_REASONING_DESC)
     subject_a: str = Field(description="比較對象 A 的名稱")
     subject_b: str = Field(description="比較對象 B 的名稱")
     comparison_table: List[dict] = Field(
@@ -258,6 +269,7 @@ class ComparisonContent(BaseModel):
 class PracticeContent(BaseModel):
     """練習節點的教學內容：用實作任務整合前面所學，強化記憶與應用能力。"""
 
+    reasoning: str = Field(description=_REASONING_DESC)
     objective: str = Field(
         description="練習目標（1-2 句話）：完成這個練習後，學習者應該能做到什麼。"
     )
@@ -279,9 +291,9 @@ class PracticeContent(BaseModel):
 class ContentValidationResult(BaseModel):
     """Content critic 的審核結果"""
 
-    is_valid: bool = Field(
-        description="內容是否通過審核：true 表示品質合格，false 表示需要重新生成"
-    )
     feedback: str = Field(
-        description="具體的審核意見。通過時簡述優點；不通過時必須指出哪些部分不合格、如何改進"
+        description="具體的審核意見。先逐一分析五個維度，再得出結論。不通過時必須指出哪些部分不合格、如何改進"
+    )
+    is_valid: bool = Field(
+        description="內容是否通過審核：true 表示品質合格，false 表示需要重新生成。必須與上方 feedback 的分析結論一致"
     )

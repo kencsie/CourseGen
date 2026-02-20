@@ -149,7 +149,7 @@ if __name__ == "__main__":
             "max_iterations": 3,
             "tavily_api_key": os.getenv("TAVILY_KEY"),
             "content_model": "google/gemini-3-flash-preview",
-            "content_max_retries": 2,
+            "content_max_retries": 3,
         },
         config={"callbacks": [langfuse_handler]},
     )

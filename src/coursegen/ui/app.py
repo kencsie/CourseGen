@@ -99,7 +99,7 @@ def generate_roadmap(question: str, preferences: UserPreferences):
                 "max_iterations": int(os.getenv("MAX_ITERATIONS", "3")),
                 "tavily_api_key": os.getenv("TAVILY_KEY"),
                 "content_model": os.getenv("CONTENT_MODEL", "google/gemini-3-flash-preview"),
-                "content_max_retries": int(os.getenv("CONTENT_MAX_RETRIES", "2")),
+                "content_max_retries": int(os.getenv("CONTENT_MAX_RETRIES", "3")),
             }
 
             st.write(f"📝 主題: {question}")
