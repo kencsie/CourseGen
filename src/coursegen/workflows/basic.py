@@ -69,20 +69,18 @@ roadmap_builder.add_conditional_edges(
 
 roadmap_subgraph = roadmap_builder.compile()
 
-# === ContentSubgraph（ContentState）===
-content_builder = StateGraph(ContentState, context_schema=ContextSchema)
+# === Inner subgraph: 單次 content node 的完整處理 ===
+content_iteration_builder = StateGraph(ContentState, context_schema=ContextSchema)
 
-content_builder.add_node("content_planning_node", content_planning_node)
-content_builder.add_node("content_knowledge_search_node", content_knowledge_search_node)
-content_builder.add_node("content_generation_node", content_generation_node)
-content_builder.add_node("content_critic_node", content_critic_node)
-content_builder.add_node("content_advance_node", content_advance_node)
+content_iteration_builder.add_node("content_knowledge_search_node", content_knowledge_search_node)
+content_iteration_builder.add_node("content_generation_node", content_generation_node)
+content_iteration_builder.add_node("content_critic_node", content_critic_node)
+content_iteration_builder.add_node("content_advance_node", content_advance_node)
 
-content_builder.add_edge(START, "content_planning_node")
-content_builder.add_edge("content_planning_node", "content_knowledge_search_node")
-content_builder.add_edge("content_knowledge_search_node", "content_generation_node")
-content_builder.add_edge("content_generation_node", "content_critic_node")
-content_builder.add_conditional_edges(
+content_iteration_builder.add_edge(START, "content_knowledge_search_node")
+content_iteration_builder.add_edge("content_knowledge_search_node", "content_generation_node")
+content_iteration_builder.add_edge("content_generation_node", "content_critic_node")
+content_iteration_builder.add_conditional_edges(
     "content_critic_node",
     content_router,
     {
@@ -91,11 +89,23 @@ content_builder.add_conditional_edges(
         "retry": "content_generation_node",
     },
 )
+content_iteration_builder.add_edge("content_advance_node", "__end__")
+
+content_iteration_subgraph = content_iteration_builder.compile()
+
+# === Outer ContentSubgraph: planning + loop ===
+content_builder = StateGraph(ContentState, context_schema=ContextSchema)
+
+content_builder.add_node("content_planning_node", content_planning_node)
+content_builder.add_node("content_iteration", content_iteration_subgraph)
+
+content_builder.add_edge(START, "content_planning_node")
+content_builder.add_edge("content_planning_node", "content_iteration")
 content_builder.add_conditional_edges(
-    "content_advance_node",
+    "content_iteration",
     content_should_continue,
     {
-        "continue": "content_knowledge_search_node",
+        "continue": "content_iteration",
         "__end__": "__end__",
     },
 )
