@@ -374,9 +374,8 @@ def content_generation_node(
             "content_node_retries": state.get("content_node_retries", 0) + 1,
         }
 
-    # 後處理：從 LLM 輸出中提取實際引用的來源
     content_dict = result.model_dump()
-    content_dict = _extract_sources(content_dict, raw_sources)
+    # 不在此處做引用重新編號，保留原始編號供 critic 審核
     return {"content_map": {current_node_id: content_dict}}
 
 
@@ -407,10 +406,9 @@ def content_critic_node(state: ContentState, runtime: Runtime[ContextSchema]) ->
     knowledge = state.get("content_node_knowledge", {})
     external_knowledge = knowledge.get("synthesized_knowledge", "")
 
-    # 格式化來源清單
     raw_sources = knowledge.get("sources", [])
     sources_formatted = "\n\n".join(
-        f"[{i+1}] {s['title']}\nURL: {s['url']}\n{s['snippet']}"
+        f"[{i+1}] {s['title']}\nURL: {s['url']}\n{s.get('snippet', '')}"
         for i, s in enumerate(raw_sources)
     ) or "（無來源資訊）"
 
@@ -528,6 +526,13 @@ def content_advance_node(state: ContentState, runtime: Runtime[ContextSchema]) -
         failed.append(current_node_id)
         result["content_failed_nodes"] = failed
         logger.warning(f"節點 {current_node_id} 標記為失敗")
+
+    # 對當前節點內容做引用重新編號（延後到 critic 通過後才執行）
+    content = state["content_map"].get(current_node_id, {})
+    raw_sources = state.get("content_node_knowledge", {}).get("sources", [])
+    if content and raw_sources:
+        renumbered = _extract_sources(content, raw_sources)
+        result["content_map"] = {current_node_id: renumbered}
 
     logger.info(f"推進: {current_node_id} 完成 ({next_index}/{total_nodes})")
 
