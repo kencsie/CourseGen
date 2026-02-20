@@ -85,7 +85,11 @@ def render_comparison(content: dict) -> None:
 
     table = content.get("comparison_table", [])
     if table:
-        df = pd.DataFrame(table)
+        styled_table = [
+            {k: _style_citations(v) if isinstance(v, str) else v for k, v in row.items()}
+            for row in table
+        ]
+        df = pd.DataFrame(styled_table)
         # Rename columns for display
         column_map = {"dimension": "比較面向", "a": subject_a, "b": subject_b}
         df = df.rename(columns=column_map)
