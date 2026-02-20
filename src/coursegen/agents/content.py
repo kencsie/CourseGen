@@ -268,7 +268,19 @@ def content_generation_node(
         temperature=0.1,
     )
     model_structured = model.with_structured_output(content_model)
-    result = model_structured.invoke(prompt_template)
+
+    try:
+        result = model_structured.invoke(prompt_template)
+    except Exception as e:
+        logger.warning(f"Content generation LLM 呼叫失敗（截斷或解析錯誤）: {e}")
+        result = None
+
+    if result is None:
+        return {
+            "content_map": {},
+            "content_node_feedback": "內容生成失敗（模型輸出截斷或 JSON 解析錯誤），需要重試。",
+            "content_node_retries": state.get("content_node_retries", 0) + 1,
+        }
 
     # 回傳建立好的節點內容
     return {"content_map": {current_node_id: result.model_dump()}}
@@ -613,7 +625,7 @@ if __name__ == "__main__":
             content_model = "google/gemini-3-flash-preview"
             base_url = os.getenv("BASE_URL")
             openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-            content_max_retries = 2
+            content_max_retries = 3
 
         context = MockContext()
 
