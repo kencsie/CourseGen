@@ -12,6 +12,7 @@ Content Generation Agents
 - content_router             — 決定下一步是 advance / retry / advance_with_failure
 """
 
+import re
 from collections import deque, defaultdict
 from coursegen.schemas import (
     ContentState,
@@ -48,6 +49,97 @@ CONTENT_MODELS = {
     "comparison": ComparisonContent,
     "practice": PracticeContent,
 }
+
+
+# ============================================================
+# Helper: 從 LLM 輸出文字中提取引用來源並重新編號
+# ============================================================
+def _extract_sources(result_dict: dict, raw_sources: list[dict]) -> dict:
+    """從 LLM 輸出文字中提取引用編號，對照 raw_sources 建立 sources 清單並重新編號。"""
+
+    def iter_strings(obj):
+        if isinstance(obj, str):
+            yield obj
+        elif isinstance(obj, list):
+            for item in obj:
+                yield from iter_strings(item)
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                yield from iter_strings(v)
+
+    # 排除 reasoning 欄位，只掃描實際內容中的引用
+    content_only = {k: v for k, v in result_dict.items() if k != "reasoning"}
+    all_text = " ".join(iter_strings(content_only))
+
+    # 找出所有 [N] 引用，去重排序
+    cited = sorted(set(int(m) for m in re.findall(r"\[(\d+)\]", all_text)))
+
+    # 過濾有效的引用並建立 old→new 映射
+    old_to_new = {}
+    filtered_sources = []
+    for old_idx in cited:
+        src_idx = old_idx - 1  # [1] 對應 index 0
+        if 0 <= src_idx < len(raw_sources):
+            new_idx = len(filtered_sources) + 1
+            old_to_new[old_idx] = new_idx
+            s = raw_sources[src_idx]
+            filtered_sources.append({
+                "title": s["title"],
+                "url": s["url"],
+                "snippet": s.get("snippet", ""),
+            })
+
+    # 如果不需要重新編號（已經連續），跳過替換
+    needs_renumber = any(old != new for old, new in old_to_new.items())
+
+    if needs_renumber:
+        def renumber(text):
+            return re.sub(
+                r"\[(\d+)\]",
+                lambda m: f"[{old_to_new.get(int(m.group(1)), m.group(1))}]",
+                text,
+            )
+
+        def map_strings(obj):
+            if isinstance(obj, str):
+                return renumber(obj)
+            elif isinstance(obj, list):
+                return [map_strings(item) for item in obj]
+            elif isinstance(obj, dict):
+                return {k: map_strings(v) for k, v in obj.items()}
+            return obj
+
+        result_dict = {
+            k: (map_strings(v) if k != "reasoning" else v)
+            for k, v in result_dict.items()
+        }
+
+    result_dict["sources"] = filtered_sources
+    return result_dict
+
+
+# ============================================================
+# Helper: 為 LLM invoke 構建帶識別資訊的 config
+# ============================================================
+def _make_llm_config(state: ContentState, step_name: str) -> dict:
+    """Build RunnableConfig with content-node-specific run_name and metadata."""
+    current_index = state["content_current_index"]
+    current_node_id = state["content_order"][current_index]
+    roadmap_nodes = {n["id"]: n for n in state["roadmap"]["nodes"]}
+    current_node = roadmap_nodes[current_node_id]
+    raw_type = current_node["type"]
+    node_type = raw_type.value if hasattr(raw_type, "value") else str(raw_type)
+
+    return {
+        "run_name": f"[{current_index}] {current_node_id} ({node_type}) - {step_name}",
+        "metadata": {
+            "content_node_id": current_node_id,
+            "content_node_type": node_type,
+            "content_node_label": current_node["label"],
+            "content_node_index": current_index,
+            "step": step_name,
+        },
+    }
 
 
 # ============================================================
@@ -157,7 +249,7 @@ def content_knowledge_search_node(
         label=node_label,
         description=current_node.get("description", ""),
     )
-    query = model.invoke(query_prompt).content.strip()
+    query = model.invoke(query_prompt, config=_make_llm_config(state, "search_query")).content.strip()
 
     logger.info(f"搜尋 query: {query}")
 
@@ -270,7 +362,7 @@ def content_generation_node(
     model_structured = model.with_structured_output(content_model)
 
     try:
-        result = model_structured.invoke(prompt_template)
+        result = model_structured.invoke(prompt_template, config=_make_llm_config(state, "generation"))
     except Exception as e:
         logger.warning(f"Content generation LLM 呼叫失敗（截斷或解析錯誤）: {e}")
         result = None
@@ -282,8 +374,10 @@ def content_generation_node(
             "content_node_retries": state.get("content_node_retries", 0) + 1,
         }
 
-    # 回傳建立好的節點內容
-    return {"content_map": {current_node_id: result.model_dump()}}
+    # 後處理：從 LLM 輸出中提取實際引用的來源
+    content_dict = result.model_dump()
+    content_dict = _extract_sources(content_dict, raw_sources)
+    return {"content_map": {current_node_id: content_dict}}
 
 
 # ============================================================
@@ -344,7 +438,7 @@ def content_critic_node(state: ContentState, runtime: Runtime[ContextSchema]) ->
     model_structured = model.with_structured_output(ContentValidationResult)
 
     try:
-        result = model_structured.invoke(formatted_prompt)
+        result = model_structured.invoke(formatted_prompt, config=_make_llm_config(state, "critic"))
     except Exception as e:
         logger.warning(f"Critic LLM 呼叫失敗（refusal 或解析錯誤）: {e}")
         result = None
