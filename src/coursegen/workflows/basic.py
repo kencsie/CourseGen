@@ -2,12 +2,7 @@ from coursegen.schemas import Language, UserPreferences, LearningGoal, Difficult
 import os
 from coursegen.agents.roadmap import roadmap_node
 from coursegen.agents.knowledge_search import knowledge_search_node
-from coursegen.agents.critic import (
-    critic_1_node,
-    critic_2_node,
-    critic_3_node,
-    aggregator_node,
-)
+from coursegen.agents.critic import roadmap_critic_node
 from coursegen.agents.content import (
     content_planning_node,
     content_knowledge_search_node,
@@ -33,14 +28,16 @@ def to_mermaid(roadmap_data):
             print(f"    {parent} --> {node['id']}")
 
 
-def conditional_edge(state: RoadmapState, runtime: Runtime[ContextSchema]) -> str:
-    """Roadmap 驗證後的路由：通過則結束 subgraph（流入 content），否則重新生成。"""
+def roadmap_router(state: RoadmapState, runtime: Runtime[ContextSchema]) -> str:
+    """Roadmap 驗證後的路由：通過/達上限則結束，否則根據 retry_target 回到 search 或 generation。"""
     if (
         state.get("roadmap_is_valid", False)
         or state.get("iteration_count", 0) >= runtime.context.max_iterations
     ):
         return "__end__"
-    return "roadmap_node"
+    if state.get("roadmap_retry_target") == "search":
+        return "search"
+    return "generation"
 
 
 # === RoadmapSubgraph（RoadmapState）===
@@ -48,23 +45,15 @@ roadmap_builder = StateGraph(RoadmapState, context_schema=ContextSchema)
 
 roadmap_builder.add_node("knowledge_search_node", knowledge_search_node)
 roadmap_builder.add_node("roadmap_node", roadmap_node)
-roadmap_builder.add_node("critic_1_node", critic_1_node)
-roadmap_builder.add_node("critic_2_node", critic_2_node)
-roadmap_builder.add_node("critic_3_node", critic_3_node)
-roadmap_builder.add_node("aggregator_node", aggregator_node)
+roadmap_builder.add_node("roadmap_critic_node", roadmap_critic_node)
 
 roadmap_builder.add_edge(START, "knowledge_search_node")
 roadmap_builder.add_edge("knowledge_search_node", "roadmap_node")
-roadmap_builder.add_edge("roadmap_node", "critic_1_node")
-roadmap_builder.add_edge("roadmap_node", "critic_2_node")
-roadmap_builder.add_edge("roadmap_node", "critic_3_node")
-roadmap_builder.add_edge("critic_1_node", "aggregator_node")
-roadmap_builder.add_edge("critic_2_node", "aggregator_node")
-roadmap_builder.add_edge("critic_3_node", "aggregator_node")
+roadmap_builder.add_edge("roadmap_node", "roadmap_critic_node")
 roadmap_builder.add_conditional_edges(
-    "aggregator_node",
-    conditional_edge,
-    {"__end__": "__end__", "roadmap_node": "roadmap_node"},
+    "roadmap_critic_node",
+    roadmap_router,
+    {"__end__": "__end__", "search": "knowledge_search_node", "generation": "roadmap_node"},
 )
 
 roadmap_subgraph = roadmap_builder.compile()
@@ -86,7 +75,8 @@ content_iteration_builder.add_conditional_edges(
     {
         "advance": "content_advance_node",
         "advance_with_failure": "content_advance_node",
-        "retry": "content_generation_node",
+        "search": "content_knowledge_search_node",
+        "generation": "content_generation_node",
     },
 )
 content_iteration_builder.add_edge("content_advance_node", "__end__")
@@ -153,9 +143,7 @@ if __name__ == "__main__":
             "model_name": "google/gemini-3-flash-preview",
             "base_url": os.getenv("BASE_URL"),
             "openrouter_api_key": os.getenv("OPENROUTER_API_KEY"),
-            "critic_1_model": "anthropic/claude-4.5-sonnet",
-            "critic_2_model": "openai/gpt-4o",
-            "critic_3_model": "google/gemini-3-flash-preview",
+            "roadmap_critic_model": "google/gemini-3-flash-preview",
             "max_iterations": 3,
             "tavily_api_key": os.getenv("TAVILY_KEY"),
             "content_model": "google/gemini-3-flash-preview",

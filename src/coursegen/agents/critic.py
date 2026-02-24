@@ -27,17 +27,17 @@ def _validate_dependency_ids(roadmap: dict) -> list[str]:
     return issues
 
 
-def critic_1_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
-    logger.info(f"Critic 1 審核中（{runtime.context.critic_1_model}）")
+def roadmap_critic_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
+    # 1. LLM 審核
     model = init_chat_model(
-        model=runtime.context.critic_1_model,
-        model_provider="openai",  # OpenRouter 使用 OpenAI-compatible API
+        model=runtime.context.roadmap_critic_model,
+        model_provider="openai",
         api_key=runtime.context.openrouter_api_key,
         base_url=runtime.context.base_url,
-        temperature=0
+        temperature=0,
     )
     model_structured = model.with_structured_output(RoadmapValidationResult)
-    response = model_structured.invoke(
+    result = model_structured.invoke(
         ROADMAP_CRITIC_PROMPT.format(
             question=state["question"],
             user_preferences=state["user_preferences"],
@@ -45,149 +45,51 @@ def critic_1_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
             external_knowledge=_get_external_knowledge(state),
         )
     )
-    response.critic_name = "critic_1"
-    response.model_name = runtime.context.critic_1_model
-    logger.info(
-        f"Critic 1 結果: {'通過' if response.is_valid else '未通過'} | "
-        f"回饋: {response.feedback[:80]}..."
-    )
-    return {
-        "critics": [response.model_dump()]
-    }
 
-
-def critic_2_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
-    logger.info(f"Critic 2 審核中（{runtime.context.critic_2_model}）")
-    model = init_chat_model(
-        model=runtime.context.critic_2_model,
-        model_provider="openai",  # OpenRouter 使用 OpenAI-compatible API
-        api_key=runtime.context.openrouter_api_key,
-        base_url=runtime.context.base_url,
-        temperature=0
-    )
-    model_structured = model.with_structured_output(RoadmapValidationResult)
-    response = model_structured.invoke(
-        ROADMAP_CRITIC_PROMPT.format(
-            question=state["question"],
-            user_preferences=state["user_preferences"],
-            roadmap=state["roadmap"],
-            external_knowledge=_get_external_knowledge(state),
-        )
-    )
-    response.critic_name = "critic_2"
-    response.model_name = runtime.context.critic_2_model
-    logger.info(
-        f"Critic 2 結果: {'通過' if response.is_valid else '未通過'} | "
-        f"回饋: {response.feedback[:80]}..."
-    )
-    return {
-        "critics": [response.model_dump()]
-    }
-
-
-def critic_3_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
-    logger.info(f"Critic 3 審核中（{runtime.context.critic_3_model}）")
-    model = init_chat_model(
-        model=runtime.context.critic_3_model,
-        model_provider="openai",  # OpenRouter 使用 OpenAI-compatible API
-        api_key=runtime.context.openrouter_api_key,
-        base_url=runtime.context.base_url,
-        temperature=0
-    )
-    model_structured = model.with_structured_output(RoadmapValidationResult)
-    response = model_structured.invoke(
-        ROADMAP_CRITIC_PROMPT.format(
-            question=state["question"],
-            user_preferences=state["user_preferences"],
-            roadmap=state["roadmap"],
-            external_knowledge=_get_external_knowledge(state),
-        )
-    )
-    response.critic_name = "critic_3"
-    response.model_name = runtime.context.critic_3_model
-    logger.info(
-        f"Critic 3 結果: {'通過' if response.is_valid else '未通過'} | "
-        f"回饋: {response.feedback[:80]}..."
-    )
-    return {
-        "critics": [response.model_dump()]
-    }
-
-
-def aggregator_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
-    """
-    根據多數決，得出此roadmap是否正確
-    """
-
-    critics = [RoadmapValidationResult(**c) for c in state["critics"]]
-    valid_votes = sum(1 for c in critics if c.is_valid)
-    is_valid = valid_votes >= 2  # 至少要2/3，才算通過
-    feedback = [c.model_dump() for c in critics]
-
-    # 結構性驗證
+    # 2. 結構性驗證
     structural_issues = _validate_dependency_ids(state["roadmap"])
     if structural_issues:
-        logger.warning(f"Roadmap dependency ID 驗證失敗: {structural_issues}")
-        feedback.append({
-            "critic_name": "structural_validator",
-            "model_name": "deterministic",
-            "feedback": (
-                "【結構性錯誤】以下 dependency ID 不存在於節點清單中，"
-                "請確保 dependencies 欄位只引用本 roadmap 中實際存在的節點 ID：\n"
-                + "\n".join(f"- {issue}" for issue in structural_issues)
-            ),
-            "is_valid": False,
-        })
-        is_valid = False
+        result.is_valid = False
+        result.feedback += (
+            "\n\n【結構性錯誤】以下 dependency ID 不存在於節點清單中，"
+            "請確保 dependencies 欄位只引用本 roadmap 中實際存在的節點 ID：\n"
+            + "\n".join(f"- {issue}" for issue in structural_issues)
+        )
+        result.retry_target = "generation"
 
+    # 3. iteration_count 遞增 + termination_reason
     current_iteration = state.get("iteration_count", 0) + 1
-
-    if is_valid:
+    if result.is_valid:
         termination_reason = "validation_passed"
     elif current_iteration >= runtime.context.max_iterations:
         termination_reason = f"max_iterations_reached ({runtime.context.max_iterations})"
     else:
         termination_reason = None
 
-    metadata = {
-        "valid_votes": valid_votes,
-        "total_critics": 3,
-        "consensus_level": "unanimous" if valid_votes in [0, 3] else "majority",
-        "iteration": current_iteration
+    # 4. feedback 累積
+    existing = state.get("roadmap_feedback", [])
+    new_entry = {
+        "feedback": result.feedback,
+        "retry_target": result.retry_target,
+        "is_valid": result.is_valid,
+        "iteration": current_iteration,
     }
 
     logger.info(
-        f"迭代次數：{current_iteration}/{runtime.context.max_iterations} | "
-        f"同意數：{metadata['valid_votes']}/{metadata['total_critics']} | "
-        f"共識：{metadata['consensus_level']} | "
-        f"結果：{'通過' if is_valid else '未通過，觸發 retry'}"
+        f"迭代 {current_iteration}/{runtime.context.max_iterations} | "
+        f"{'通過' if result.is_valid else '未通過'} | "
+        f"retry_target: {result.retry_target}"
     )
 
     return {
-        "roadmap_is_valid": is_valid,
-        "roadmap_feedback": feedback,
-        "validation_metadata": metadata,
+        "roadmap_is_valid": result.is_valid,
+        "roadmap_latest_feedback": result.feedback,
+        "roadmap_feedback": existing + [new_entry],
+        "roadmap_retry_target": result.retry_target,
         "iteration_count": current_iteration,
-        "termination_reason": termination_reason
-    }
-
-def roadmap_critic_node(state: RoadmapState, runtime: Runtime[ContextSchema]):
-    model = init_chat_model(
-        model=runtime.context.model_name,
-        model_provider="openai",  # OpenRouter 使用 OpenAI-compatible API
-        api_key=runtime.context.openrouter_api_key,
-        base_url=runtime.context.base_url,
-    )
-    model_structured = model.with_structured_output(RoadmapValidationResult)
-    response = model_structured.invoke(
-        ROADMAP_CRITIC_PROMPT.format(
-            question=state["question"],
-            user_preferences=state["user_preferences"],
-            roadmap=state["roadmap"],
-            external_knowledge=_get_external_knowledge(state),
-        )
-    )
-    return {
-        "roadmap_feedback": response.feedback,
-        "roadmap_is_valid": response.is_valid,
+        "termination_reason": termination_reason,
+        "validation_metadata": {
+            "iteration": current_iteration,
+            "has_structural_issues": bool(structural_issues),
+        },
     }

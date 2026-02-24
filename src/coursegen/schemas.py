@@ -1,19 +1,8 @@
-from typing import List, Optional, Annotated
+from typing import List, Literal, Optional, Annotated
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
 from enum import Enum
 from typing import TypedDict
-
-
-def critics_reducer(current: list[dict], new: list[dict]) -> list[dict]:
-    """
-    自定義 reducer 用於 critics 字段：
-    - 如果 new 是空列表 []，則清空 current（返回空列表）
-    - 否則將 new 追加到 current（add 行為）
-    """
-    if new == []:  # 空列表作為清空信號
-        return []
-    return current + new
 
 
 def dict_merge_reducer(current: dict, new: dict) -> dict:
@@ -43,9 +32,10 @@ class RoadmapState(TypedDict):
     user_preferences: str
     roadmap: dict                                      # 輸出回 AppState
     # 私有欄位
-    critics: Annotated[list[dict], critics_reducer]
     roadmap_feedback: list[dict]
     roadmap_is_valid: bool
+    roadmap_latest_feedback: str
+    roadmap_retry_target: str
     validation_metadata: dict
     iteration_count: int
     termination_reason: str
@@ -65,6 +55,8 @@ class ContentState(TypedDict):
     content_node_knowledge: dict
     content_node_feedback: str
     content_node_retries: int
+    content_node_retry_target: str
+    content_node_feedback_history: list[str]
 
 
 @dataclass
@@ -73,9 +65,7 @@ class ContextSchema:
     base_url: str
     openrouter_api_key: str
     tavily_api_key: Optional[str] = None
-    critic_1_model: str = "anthropic/claude-3.5-sonnet"
-    critic_2_model: str = "openai/gpt-4o"
-    critic_3_model: str = "google/gemini-2.5-flash-thinking-exp"
+    roadmap_critic_model: str = "google/gemini-3-flash-preview"
     max_iterations: int = 3
     content_model: str = "google/gemini-3-flash-preview"
     content_max_retries: int = 3
@@ -144,10 +134,11 @@ class Roadmap(BaseModel):
 
 
 class RoadmapValidationResult(BaseModel):
-    critic_name: str = Field(description="Critic名稱(critic_1/critic_2/critic_3)")
-    model_name: str = Field(description="LLM模型名稱")
     feedback: str = Field(description="詳細回饋")
     is_valid: bool = Field(description="驗證結果")
+    retry_target: Literal["search", "generation"] = Field(
+        description="若 is_valid=False，決定 retry 回到 search 還是 generation"
+    )
 
 
 class SearchResult(BaseModel):
@@ -267,6 +258,26 @@ class PracticeContent(BaseModel):
     )
 
 
+class SearchQueryResult(BaseModel):
+    """Search query generation 的結構化輸出"""
+    reasoning: str = Field(
+        description="思考過程：分析節點主題、考慮 critic feedback（如有），決定最佳搜尋方向"
+    )
+    query: str = Field(
+        description="5-10 words English search query"
+    )
+
+
+class RoadmapSearchQueryResult(BaseModel):
+    """Roadmap search query generation 的結構化輸出"""
+    reasoning: str = Field(
+        description="思考過程：分析使用者問題與 critic feedback（如有），決定最佳搜尋方向"
+    )
+    query: str = Field(
+        description="5-10 words English search query"
+    )
+
+
 class ContentValidationResult(BaseModel):
     """Content critic 的審核結果"""
 
@@ -275,4 +286,7 @@ class ContentValidationResult(BaseModel):
     )
     is_valid: bool = Field(
         description="內容是否通過審核：true 表示品質合格，false 表示需要重新生成。必須與上方 feedback 的分析結論一致"
+    )
+    retry_target: Literal["search", "generation"] = Field(
+        description="若 is_valid=False，決定 retry 回到 search 還是 generation"
     )
