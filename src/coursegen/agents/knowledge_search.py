@@ -1,5 +1,6 @@
-from coursegen.schemas import RoadmapState, ContextSchema, KnowledgeContext, SearchResult
+from coursegen.schemas import RoadmapState, ContextSchema, KnowledgeContext, SearchResult, RoadmapSearchQueryResult
 from coursegen.prompts.knowledge_synthesis import KNOWLEDGE_SYNTHESIS_PROMPT
+from coursegen.prompts.roadmap import ROADMAP_SEARCH_QUERY_PROMPT
 from langgraph.runtime import Runtime
 from langchain.chat_models import init_chat_model
 from tavily import TavilyClient
@@ -20,13 +21,44 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
     # 設定Tavily客戶端
     tavily_client = TavilyClient(api_key=runtime.context.tavily_api_key)
 
-    logger.info(f"知識搜尋開始，query: {state.get('question')}")
+    logger.info(f"知識搜尋開始，question: {state.get('question')}")
+
+    # 組裝 critic feedback（retry 時引導 LLM 調整 query）
+    feedback_history = state.get("roadmap_feedback", [])
+    retry_target = state.get("roadmap_retry_target", "")
+    if feedback_history and retry_target == "search":
+        latest_feedback = feedback_history[-1] if isinstance(feedback_history[-1], str) else feedback_history[-1].get("feedback", "")
+        critic_feedback_str = (
+            f"\n⚠️ Previous search was inadequate. Critic feedback:\n"
+            f"{latest_feedback}\n"
+            f"Please generate a DIFFERENT search query that addresses the above issues."
+        )
+    else:
+        critic_feedback_str = ""
+
+    # 用 LLM 生成搜尋 query
+    query_model = init_chat_model(
+        model=runtime.context.model_name,
+        model_provider="openai",
+        api_key=runtime.context.openrouter_api_key,
+        base_url=runtime.context.base_url,
+        temperature=0,
+    )
+    query_prompt = ROADMAP_SEARCH_QUERY_PROMPT.format(
+        question=state.get("question"),
+        critic_feedback=critic_feedback_str,
+    )
+    query_result = query_model.with_structured_output(RoadmapSearchQueryResult).invoke(query_prompt)
+    search_query = query_result.query.strip()
+    logger.info(f"搜尋 reasoning: {query_result.reasoning[:100]}...")
+    logger.info(f"搜尋 query: {search_query}")
 
     # 搜尋query
     response = tavily_client.search(
-        query=state.get("question"),
+        query=search_query,
         search_depth="advanced",
         include_raw_content="markdown",
+        exclude_domains=["youtube.com"],
     )
 
     # 整理成SearchResult物件串列

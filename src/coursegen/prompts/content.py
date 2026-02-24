@@ -15,17 +15,20 @@ Node type: {node_type}
 Node label: {label}
 Node description: {description}
 
-Output ONE search query only (no explanation):
+Rules:
 - 5-10 words maximum
 - In English regardless of input language
-- Translate the node label to English and combine with the topic
+- Translate the node label LITERALLY to English and combine with the topic
 - You may include synonyms of words already in the label (e.g. "errors" → also "mistakes")
 - Do NOT add technical terms or concepts not present in the label or description
+- Do NOT substitute or "correct" the label based on your own knowledge. If the label says "長槍" (spear), search for "spear", NOT "mace" or any other weapon you think might be more accurate.
+- Your job is to faithfully translate and search, not to fact-check the label.
 
 Examples:
 - topic="Python", label="記憶體管理", type="concept" → "Python memory management concept"
 - topic="React", label="常見錯誤", type="pitfall" → "React common errors pitfalls"
 - topic="Minecraft Java Beta 1.0", label="環境準備與先備知識", type="prerequisite" → "Minecraft Java Beta 1.0 setup prerequisites"
+{critic_feedback}
 """
 
 # ============================================================
@@ -346,6 +349,23 @@ CONTENT_CRITIC_PROMPT = """
   (1) 哪個維度有問題
   (2) 具體問題是什麼
   (3) 如何改進
+
+### Retry 方向判斷（retry_target）
+若 is_valid=false，你必須判斷問題的根本原因，決定 retry_target：
+
+**"search"** — 現有來源無法支撐正確內容，需要重新搜尋：
+- 來源主題與節點主題不匹配（例如：節點是「長槍 vs 劍」但來源全是關於 Mace）
+- 內容中的事實性陳述在來源中找不到任何依據（幻覺/捏造數據）
+- 來源資訊過於稀少，無法支撐完整的教學內容
+- 事實查核失敗：內容與來源明顯矛盾
+
+**"generation"** — 來源品質足夠，但生成的內容本身有問題：
+- 結構不完整、欄位缺漏
+- 語言錯誤、格式不符
+- 描述不清晰、教學邏輯混亂
+- 引用編號錯誤（但來源內容本身是對的）
+
+⚠️ 關鍵判斷原則：如果「即使重新生成，用同樣的來源還是無法產出正確內容」，就選 "search"。
 
 ### 上一次的審核意見（如果是重試）
 {previous_feedback}

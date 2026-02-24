@@ -19,6 +19,7 @@ from coursegen.schemas import (
     ContextSchema,
     NodeType,
     ContentValidationResult,
+    SearchQueryResult,
     PrerequisiteContent,
     ConceptContent,
     PitfallContent,
@@ -236,6 +237,19 @@ def content_knowledge_search_node(
     # 用 LLM 生成搜尋 query（確保英文、簡潔、相關）
     topic = state["roadmap"]["topic"]
 
+    # 組裝 critic feedback（retry 時引導 LLM 調整 query）
+    feedback_history = state.get("content_node_feedback_history", [])
+    retry_target = state.get("content_node_retry_target", "")
+    if feedback_history and retry_target == "search":
+        latest_feedback = feedback_history[-1]
+        critic_feedback_str = (
+            f"\n⚠️ Previous search was inadequate. Critic feedback:\n"
+            f"{latest_feedback}\n"
+            f"Please generate a DIFFERENT search query that addresses the above issues."
+        )
+    else:
+        critic_feedback_str = ""
+
     model = init_chat_model(
         model=runtime.context.content_model,
         model_provider="openai",
@@ -248,8 +262,13 @@ def content_knowledge_search_node(
         node_type=node_type,
         label=node_label,
         description=current_node.get("description", ""),
+        critic_feedback=critic_feedback_str,
     )
-    query = model.invoke(query_prompt, config=_make_llm_config(state, "search_query")).content.strip()
+    query_result = model.with_structured_output(SearchQueryResult).invoke(
+        query_prompt, config=_make_llm_config(state, "search_query")
+    )
+    query = query_result.query.strip()
+    logger.info(f"搜尋 reasoning: {query_result.reasoning[:100]}...")
 
     logger.info(f"搜尋 query: {query}")
 
@@ -260,6 +279,7 @@ def content_knowledge_search_node(
             query=query,
             search_depth="advanced",
             include_answer="advanced",
+            exclude_domains=["youtube.com"],
         )
     except Exception as e:
         logger.error(f"Tavily 搜尋失敗: {e}")
@@ -328,10 +348,13 @@ def content_generation_node(
         for i, s in enumerate(raw_sources)
     ) or "（無來源資訊）"
 
-    # 取得 critic feedback（重試時會有內容）
-    critic_feedback = state.get("content_node_feedback", "")
+    # 取得全部歷史 feedback（對齊 roadmap 的設計）
+    feedback_history = state.get("content_node_feedback_history", [])
+    critic_feedback = "\n---\n".join(
+        f"第 {i+1} 次嘗試的回饋：{f}" for i, f in enumerate(feedback_history)
+    ) if feedback_history else ""
     if critic_feedback:
-        logger.info(f"重試中，附帶 critic 回饋: {critic_feedback[:100]}...")
+        logger.info(f"重試中，附帶 {len(feedback_history)} 筆歷史回饋")
 
     # 選擇與填寫要使用的prompt模板
     prompt_template = CONTENT_PROMPTS[node_type]
@@ -442,12 +465,16 @@ def content_critic_node(state: ContentState, runtime: Runtime[ContextSchema]) ->
         result = None
 
     retries = state.get("content_node_retries", 0)
+    history = state.get("content_node_feedback_history", [])
 
     if result is None:
         logger.warning("Critic 回傳 None，計入重試次數")
+        fail_msg = "Critic 無法審核此內容（模型拒絕或回傳空值），視為未通過。"
         return {
-            "content_node_feedback": "Critic 無法審核此內容（模型拒絕或回傳空值），視為未通過。",
+            "content_node_feedback": fail_msg,
             "content_node_retries": retries + 1,
+            "content_node_retry_target": "generation",
+            "content_node_feedback_history": history + [fail_msg],
         }
 
     feedback_preview = (result.feedback or "")[:100]
@@ -456,10 +483,20 @@ def content_critic_node(state: ContentState, runtime: Runtime[ContextSchema]) ->
         f"回饋: {feedback_preview}..."
     )
 
-    return {
-        "content_node_feedback": result.feedback if not result.is_valid else "",
-        "content_node_retries": retries + (0 if result.is_valid else 1),
-    }
+    if result.is_valid:
+        return {
+            "content_node_feedback": "",
+            "content_node_retries": retries,
+            "content_node_retry_target": "",
+            "content_node_feedback_history": history,
+        }
+    else:
+        return {
+            "content_node_feedback": result.feedback,
+            "content_node_retries": retries + 1,
+            "content_node_retry_target": result.retry_target,
+            "content_node_feedback_history": history + [result.feedback],
+        }
 
 
 # ============================================================
@@ -469,7 +506,8 @@ def content_router(state: ContentState, runtime: Runtime[ContextSchema]) -> str:
     """
     根據 critic 結果決定下一步：
     - "advance": 通過審核，前進到下一個節點
-    - "retry": 未通過但還有重試機會，重新生成
+    - "generation": 未通過，重新生成
+    - "search": 未通過，重新搜尋
     - "advance_with_failure": 未通過且超過重試上限，記錄失敗並前進
 
     回傳值會被 add_conditional_edges 使用。
@@ -477,20 +515,25 @@ def content_router(state: ContentState, runtime: Runtime[ContextSchema]) -> str:
     feedback = state.get("content_node_feedback", "")
     retries = state.get("content_node_retries", 0)
 
-    # feedback 為空 → critic 通過（content_critic_node 通過時清空 feedback）
     if not feedback:
         logger.info("路由: advance（通過審核）")
         return "advance"
 
-    # 未通過，檢查重試次數
-    if retries < runtime.context.content_max_retries:
-        logger.info(
-            f"路由: retry（重試 {retries}/{runtime.context.content_max_retries}）"
-        )
-        return "retry"
+    if retries >= runtime.context.content_max_retries:
+        logger.warning("路由: advance_with_failure（超過重試上限）")
+        return "advance_with_failure"
 
-    logger.warning("路由: advance_with_failure（超過重試上限）")
-    return "advance_with_failure"
+    retry_target = state.get("content_node_retry_target", "generation")
+    if retry_target == "search":
+        logger.info(
+            f"路由: search（重試 {retries}/{runtime.context.content_max_retries}）"
+        )
+        return "search"
+
+    logger.info(
+        f"路由: generation（重試 {retries}/{runtime.context.content_max_retries}）"
+    )
+    return "generation"
 
 
 # ============================================================
@@ -519,6 +562,8 @@ def content_advance_node(state: ContentState, runtime: Runtime[ContextSchema]) -
         "content_node_retries": 0,
         "content_node_feedback": "",
         "content_node_knowledge": {},
+        "content_node_retry_target": "",
+        "content_node_feedback_history": [],
     }
 
     if is_failure:
