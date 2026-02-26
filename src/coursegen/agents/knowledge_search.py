@@ -1,5 +1,15 @@
-from coursegen.schemas import RoadmapState, ContextSchema, KnowledgeContext, SearchResult, RoadmapSearchQueryResult
-from coursegen.prompts.knowledge_synthesis import KNOWLEDGE_SYNTHESIS_PROMPT
+from coursegen.schemas import (
+    RoadmapState,
+    ContextSchema,
+    KnowledgeContext,
+    SearchResult,
+    RoadmapSearchQueryResult,
+    SourceFilterResponse,
+)
+from coursegen.prompts.knowledge_synthesis import (
+    KNOWLEDGE_SYNTHESIS_PROMPT,
+    ROADMAP_SOURCE_FILTER_PROMPT,
+)
 from coursegen.prompts.roadmap import ROADMAP_SEARCH_QUERY_PROMPT
 from langgraph.runtime import Runtime
 from langchain.chat_models import init_chat_model
@@ -11,32 +21,50 @@ logger = logging.getLogger(__name__)
 
 def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) -> dict:
     """
-    在生成 roadmap 前，先搜尋外部知識
+    在生成 roadmap 前，先搜尋外部知識。
+    支援 multi-query、URL 去重、source filtering。
     """
 
     if not runtime.context.tavily_api_key:
         logger.warning("TAVILY API KEY 不存在，跳過此流程")
         return {}
 
-    # 設定Tavily客戶端
     tavily_client = TavilyClient(api_key=runtime.context.tavily_api_key)
 
     logger.info(f"知識搜尋開始，question: {state.get('question')}")
 
-    # 組裝 critic feedback（retry 時引導 LLM 調整 query）
+    # ── 1. 讀歷史 ──
+    previous_queries = state.get("roadmap_search_queries_history", [])
+    urls_seen = set(state.get("roadmap_search_urls_seen", []))
+
+    # ── 2. 組裝 critic feedback ──
     feedback_history = state.get("roadmap_feedback", [])
     retry_target = state.get("roadmap_retry_target", "")
     if feedback_history and retry_target == "search":
-        latest_feedback = feedback_history[-1] if isinstance(feedback_history[-1], str) else feedback_history[-1].get("feedback", "")
+        latest_feedback = (
+            feedback_history[-1]
+            if isinstance(feedback_history[-1], str)
+            else feedback_history[-1].get("feedback", "")
+        )
         critic_feedback_str = (
             f"\n⚠️ Previous search was inadequate. Critic feedback:\n"
             f"{latest_feedback}\n"
-            f"Please generate a DIFFERENT search query that addresses the above issues."
+            f"Please generate DIFFERENT search queries that address the above issues."
         )
     else:
         critic_feedback_str = ""
 
-    # 用 LLM 生成搜尋 query
+    # 組裝 previous queries 提示
+    if previous_queries:
+        flat_prev = [q for batch in previous_queries for q in batch]
+        previous_queries_str = (
+            f"\n⚠️ Previously used queries (do NOT repeat these):\n"
+            + "\n".join(f"- {q}" for q in flat_prev)
+        )
+    else:
+        previous_queries_str = ""
+
+    # ── 3. LLM 生成 3 queries ──
     query_model = init_chat_model(
         model=runtime.context.model_name,
         model_provider="openai",
@@ -47,47 +75,88 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
     query_prompt = ROADMAP_SEARCH_QUERY_PROMPT.format(
         question=state.get("question"),
         critic_feedback=critic_feedback_str,
+        previous_queries=previous_queries_str,
     )
     query_result = query_model.with_structured_output(RoadmapSearchQueryResult).invoke(query_prompt)
-    search_query = query_result.query.strip()
+    queries = [q.strip() for q in query_result.queries]
     logger.info(f"搜尋 reasoning: {query_result.reasoning[:100]}...")
-    logger.info(f"搜尋 query: {search_query}")
+    logger.info(f"生成 {len(queries)} 個 queries: {queries}")
 
-    # 搜尋query
-    response = tavily_client.search(
-        query=search_query,
-        search_depth="advanced",
-        include_raw_content="markdown",
-        exclude_domains=["youtube.com"],
-    )
+    # ── 4. 每個 query 做 Tavily search，合併 + URL 去重 ──
+    all_results: list[SearchResult] = []
+    new_urls: set[str] = set()
 
-    # 整理成SearchResult物件串列
-    search_results = []
-    for result in response["results"]:
-        search_results.append(
-            SearchResult(
-                title=result["title"],
-                url=result["url"],
-                content=result["content"],
-                score=result["score"],
-                raw_content=result["raw_content"],
+    for q in queries:
+        try:
+            response = tavily_client.search(
+                query=q,
+                search_depth="advanced",
+                exclude_domains=["youtube.com"],
             )
-        )
+        except Exception as e:
+            logger.warning(f"Tavily search failed for query '{q}': {e}")
+            continue
 
-    logger.info(f"Tavily 搜尋完成，取得 {len(search_results)} 筆結果")
+        for result in response.get("results", []):
+            url = result["url"]
+            if url in urls_seen or url in new_urls:
+                continue
+            new_urls.add(url)
+            all_results.append(
+                SearchResult(
+                    title=result["title"],
+                    url=url,
+                    content=result["content"],
+                    score=result["score"],
+                )
+            )
 
-    # 格式化內容為可讀形式
-    formatted_results = "\n\n".join(
-        [
-            f"=== 來源 {i + 1}: {r.title} ===\n=== 關聯度分數:{r.score} ===\n{r.raw_content or r.content}"
-            for i, r in enumerate(search_results)
-        ]
+    logger.info(f"Tavily 搜尋完成，取得 {len(all_results)} 筆不重複結果")
+
+    if not all_results:
+        logger.warning("搜尋無結果，跳過 source filtering")
+        return {
+            "roadmap_search_queries_history": previous_queries + [queries],
+            "roadmap_search_urls_seen": list(urls_seen | new_urls),
+        }
+
+    # ── 5. LLM source filtering ──
+    filter_formatted = "\n\n".join(
+        f"=== 來源 {i + 1}: {r.title} ===\nURL: {r.url}\n{r.content}"
+        for i, r in enumerate(all_results)
     )
 
-    # 呼叫LLM，統整檢索到內容
-    model = init_chat_model(
+    filter_model = init_chat_model(
         model=runtime.context.model_name,
-        model_provider="openai",  # OpenRouter 使用 OpenAI-compatible API
+        model_provider="openai",
+        api_key=runtime.context.openrouter_api_key,
+        base_url=runtime.context.base_url,
+        temperature=0,
+    )
+    filter_prompt = ROADMAP_SOURCE_FILTER_PROMPT.format(
+        topic=state.get("question"),
+        search_results=filter_formatted,
+    )
+    filter_result = filter_model.with_structured_output(SourceFilterResponse).invoke(filter_prompt)
+
+    # 過濾：只保留 score >= 6
+    kept_indices = {s.index for s in filter_result.results if s.score >= 6}
+    filtered_results = [r for i, r in enumerate(all_results) if (i + 1) in kept_indices]
+    logger.info(f"Source filtering 保留 {len(filtered_results)}/{len(all_results)} 個來源")
+
+    if not filtered_results:
+        logger.warning("過濾後無結果，使用全部結果")
+        filtered_results = all_results
+
+    # ── 6. Knowledge synthesis ──
+    synthesis_formatted = "\n\n".join(
+        f"=== 來源 {i + 1}: {r.title} ===\nURL: {r.url}\n{r.content}"
+        for i, r in enumerate(filtered_results)
+    )
+
+    synthesis_model = init_chat_model(
+        model=runtime.context.model_name,
+        model_provider="openai",
         api_key=runtime.context.openrouter_api_key,
         base_url=runtime.context.base_url,
         temperature=0.1,
@@ -95,21 +164,25 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
 
     logger.info("LLM 統整知識中...")
 
-    response = model.invoke(
+    response = synthesis_model.invoke(
         KNOWLEDGE_SYNTHESIS_PROMPT.format(
-            question=state.get("question"), search_results=formatted_results
+            question=state.get("question"),
+            search_results=synthesis_formatted,
         )
     )
 
-    logger.info(f"知識統整完成，長度: {len(str(response.content))} 字")
+    synthesized = str(response.content)
+    logger.info(f"知識統整完成，長度: {len(synthesized)} 字")
 
-    # 回傳 KnowledgeContext
+    # ── 7. 回傳結果 + 搜尋歷史更新 ──
     return {
         "knowledge_context": KnowledgeContext(
             query=state.get("question"),
-            results=search_results,
-            synthesized_knowledge=str(response.content),
-        ).model_dump()
+            results=filtered_results,
+            synthesized_knowledge=synthesized,
+        ).model_dump(),
+        "roadmap_search_queries_history": previous_queries + [queries],
+        "roadmap_search_urls_seen": list(urls_seen | new_urls),
     }
 
 
@@ -132,7 +205,7 @@ if __name__ == "__main__":
         style="{",
     )
 
-    logger = logging.getLogger("coursegen")  # 你的模組前綴
+    logger = logging.getLogger("coursegen")
     logger.setLevel(logging.DEBUG)
 
     import os
@@ -140,7 +213,6 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    # 模擬 State 和 Runtime
     class MockRuntime:
         class MockContext:
             model_name = "google/gemini-2.5-flash"
@@ -157,11 +229,13 @@ if __name__ == "__main__":
 
     result = knowledge_search_node(mock_state, MockRuntime())
 
-    if result["knowledge_context"]:
+    if result.get("knowledge_context"):
         kc = KnowledgeContext(**result["knowledge_context"])
-        print(f"✅ Search successful!")
+        print(f"Search successful!")
         print(f"Query: {kc.query}")
         print(f"Results: {len(kc.results)} items")
         print(f"\nSynthesized Knowledge:\n{kc.synthesized_knowledge}")
+        print(f"\nQueries history: {result.get('roadmap_search_queries_history')}")
+        print(f"URLs seen: {len(result.get('roadmap_search_urls_seen', []))}")
     else:
-        print("❌ No knowledge context returned")
+        print("No knowledge context returned")

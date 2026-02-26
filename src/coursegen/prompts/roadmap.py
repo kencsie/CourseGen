@@ -1,12 +1,21 @@
-ROADMAP_SEARCH_QUERY_PROMPT = """Generate a concise search query for a Tavily web search.
+ROADMAP_SEARCH_QUERY_PROMPT = """Generate 3 different search queries for Tavily web search to gather comprehensive information for designing a learning roadmap.
 
 User question: {question}
 {critic_feedback}
+{previous_queries}
+
+Each query should target a different angle:
+1. Overview & core concepts — what the topic is, key terminology, fundamentals
+2. Learning path & prerequisites — recommended learning order, what to learn first
+3. Common pitfalls & advanced topics — mistakes beginners make, deeper aspects
 
 Rules:
-- 5-10 words maximum
-- In English regardless of input language
-- Focus on finding the most relevant educational content for this topic
+- Each query: 5-10 words
+- All queries in English regardless of input language
+- Preserve the user's exact terms, version numbers, and proper nouns (e.g. "Minecraft 1.21.11" must NOT become "Minecraft 1.21.1")
+- Stay faithful to the user's actual topic — do not drift to related-but-different subjects
+- Each query must be meaningfully different from the others
+- If previous queries are listed, generate NEW angles that don't overlap
 """
 
 ROADMAP_GENERATION_PROMPT = """

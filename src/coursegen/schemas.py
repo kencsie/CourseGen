@@ -40,6 +40,8 @@ class RoadmapState(TypedDict):
     iteration_count: int
     termination_reason: str
     knowledge_context: dict
+    roadmap_search_queries_history: list[list[str]]
+    roadmap_search_urls_seen: list[str]
 
 
 class ContentState(TypedDict):
@@ -273,9 +275,19 @@ class RoadmapSearchQueryResult(BaseModel):
     reasoning: str = Field(
         description="思考過程：分析使用者問題與 critic feedback（如有），決定最佳搜尋方向"
     )
-    query: str = Field(
-        description="5-10 words English search query"
+    queries: list[str] = Field(
+        description="3 different 5-10 word English search queries, each targeting a different angle"
     )
+
+
+class SourceScore(BaseModel):
+    index: int = Field(description="來源編號（從 1 開始）")
+    score: int = Field(description="相關性評分 0-10")
+    reason: str = Field(description="評分原因")
+
+
+class SourceFilterResponse(BaseModel):
+    results: list[SourceScore]
 
 
 class ContentValidationResult(BaseModel):
