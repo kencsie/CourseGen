@@ -85,17 +85,24 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
     # ── 4. 每個 query 做 Tavily search，合併 + URL 去重 ──
     all_results: list[SearchResult] = []
     new_urls: set[str] = set()
+    tavily_answers: list[str] = []
 
     for q in queries:
         try:
             response = tavily_client.search(
                 query=q,
                 search_depth="advanced",
+                include_answer="advanced",
                 exclude_domains=["youtube.com"],
             )
         except Exception as e:
             logger.warning(f"Tavily search failed for query '{q}': {e}")
             continue
+
+        answer = response.get("answer", "")
+        if answer:
+            tavily_answers.append(answer)
+            logger.info(f"Tavily answer for '{q}': {len(answer)} 字")
 
         for result in response.get("results", []):
             url = result["url"]
@@ -162,12 +169,18 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
         temperature=0.1,
     )
 
+    answers_formatted = "\n\n".join(
+        f"=== Tavily 整合摘要 {i + 1} ===\n{a}"
+        for i, a in enumerate(tavily_answers)
+    ) if tavily_answers else "（無）"
+
     logger.info("LLM 統整知識中...")
 
     response = synthesis_model.invoke(
         KNOWLEDGE_SYNTHESIS_PROMPT.format(
             question=state.get("question"),
             search_results=synthesis_formatted,
+            tavily_answers=answers_formatted,
         )
     )
 
