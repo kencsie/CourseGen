@@ -23,7 +23,9 @@ def roadmap_node(state: RoadmapState, runtime: Runtime[ContextSchema]):
         base_url=runtime.context.base_url,
         temperature=0.1,  # 使用保守的溫度，建立roadmap
     )
-    model_structured = model.with_structured_output(Roadmap)
+    model_structured = model.with_structured_output(Roadmap).with_retry(
+        stop_after_attempt=3,
+    )
     # 取得知識內容
     knowledge_context = state.get("knowledge_context") or {}
 

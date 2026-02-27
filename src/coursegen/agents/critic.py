@@ -36,7 +36,9 @@ def roadmap_critic_node(state: RoadmapState, runtime: Runtime[ContextSchema]) ->
         base_url=runtime.context.base_url,
         temperature=0,
     )
-    model_structured = model.with_structured_output(RoadmapValidationResult)
+    model_structured = model.with_structured_output(RoadmapValidationResult).with_retry(
+        stop_after_attempt=3,
+    )
     result = model_structured.invoke(
         ROADMAP_CRITIC_PROMPT.format(
             question=state["question"],
