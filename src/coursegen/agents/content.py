@@ -20,6 +20,8 @@ from coursegen.schemas import (
     NodeType,
     ContentValidationResult,
     SearchQueryResult,
+    SourceFilterResponse,
+    SearchResult,
     PrerequisiteContent,
     ConceptContent,
     PitfallContent,
@@ -31,6 +33,7 @@ from coursegen.prompts.content import (
     CONTENT_CRITIC_PROMPT,
     CONTENT_KNOWLEDGE_SYNTHESIS_PROMPT,
     SEARCH_QUERY_GENERATION_PROMPT,
+    SEARCH_RESULT_FILTER_PROMPT,
 )
 from langgraph.runtime import Runtime
 from langchain.chat_models import init_chat_model
@@ -211,11 +214,10 @@ def content_knowledge_search_node(
 ) -> dict:
     """
     對當前節點進行 Tavily 搜尋，取得與節點類型相關的外部知識。
-
-    參考：knowledge_search.py 中的 knowledge_search_node 實作模式。
+    支援 multi-query、URL 去重、source filtering。
 
     輸入：state["content_order"], state["content_current_index"], state["roadmap"]
-    輸出：content_node_knowledge (dict with "synthesized_knowledge" key)
+    輸出：content_node_knowledge, content_search_queries_history, content_search_urls_seen
     """
     # 取得當前節點資訊
     current_index = state["content_current_index"]
@@ -225,6 +227,7 @@ def content_knowledge_search_node(
 
     node_label = current_node["label"]
     node_type = current_node["type"]
+    topic = state["roadmap"]["topic"]
 
     logger.info(
         f"搜尋節點 [{current_index}] {current_node_id} ({node_type}): {node_label}"
@@ -234,10 +237,11 @@ def content_knowledge_search_node(
         logger.warning("TAVILY API KEY 不存在，跳過搜尋")
         return {"content_node_knowledge": {"synthesized_knowledge": ""}}
 
-    # 用 LLM 生成搜尋 query（確保英文、簡潔、相關）
-    topic = state["roadmap"]["topic"]
+    # ── 1. 讀歷史 ──
+    previous_queries = state.get("content_search_queries_history", [])
+    urls_seen = set(state.get("content_search_urls_seen", []))
 
-    # 組裝 critic feedback（retry 時引導 LLM 調整 query）
+    # ── 2. 組裝 retry context ──
     feedback_history = state.get("content_node_feedback_history", [])
     retry_target = state.get("content_node_retry_target", "")
     if feedback_history and retry_target == "search":
@@ -245,11 +249,21 @@ def content_knowledge_search_node(
         critic_feedback_str = (
             f"\n⚠️ Previous search was inadequate. Critic feedback:\n"
             f"{latest_feedback}\n"
-            f"Please generate a DIFFERENT search query that addresses the above issues."
+            f"Please generate DIFFERENT search queries that address the above issues."
         )
     else:
         critic_feedback_str = ""
 
+    if previous_queries:
+        flat_prev = [q for batch in previous_queries for q in batch]
+        previous_queries_str = (
+            f"\n⚠️ Previously used queries (do NOT repeat these):\n"
+            + "\n".join(f"- {q}" for q in flat_prev)
+        )
+    else:
+        previous_queries_str = ""
+
+    # ── 3. LLM 生成 3 queries ──
     model = init_chat_model(
         model=runtime.context.content_model,
         model_provider="openai",
@@ -263,47 +277,113 @@ def content_knowledge_search_node(
         label=node_label,
         description=current_node.get("description", ""),
         critic_feedback=critic_feedback_str,
+        previous_queries=previous_queries_str,
     )
     query_result = model.with_structured_output(SearchQueryResult).invoke(
         query_prompt, config=_make_llm_config(state, "search_query")
     )
-    query = query_result.query.strip()
+    queries = [q.strip() for q in query_result.queries]
     logger.info(f"搜尋 reasoning: {query_result.reasoning[:100]}...")
+    logger.info(f"生成 {len(queries)} 個 queries: {queries}")
 
-    logger.info(f"搜尋 query: {query}")
-
+    # ── 4. Multi-query Tavily search + URL 去重 ──
     tavily_client = TavilyClient(api_key=runtime.context.tavily_api_key)
+    all_results: list[SearchResult] = []
+    new_urls: set[str] = set()
+    tavily_answers: list[str] = []
 
-    try:
-        response = tavily_client.search(
-            query=query,
-            search_depth="advanced",
-            include_answer="advanced",
-            exclude_domains=["youtube.com"],
-        )
-    except Exception as e:
-        logger.error(f"Tavily 搜尋失敗: {e}")
-        return {"content_node_knowledge": {"synthesized_knowledge": ""}}
+    for q in queries:
+        try:
+            response = tavily_client.search(
+                query=q,
+                search_depth="advanced",
+                include_answer="advanced",
+                exclude_domains=["youtube.com"],
+            )
+        except Exception as e:
+            logger.warning(f"Tavily search failed for query '{q}': {e}")
+            continue
 
-    answer = response.get("answer", "")
-    logger.info(f"Tavily answer 長度: {len(answer)} 字")
+        answer = response.get("answer", "")
+        if answer:
+            tavily_answers.append(answer)
+            logger.info(f"Tavily answer for '{q}': {len(answer)} 字")
+
+        for result in response.get("results", []):
+            url = result["url"]
+            if url in urls_seen or url in new_urls:
+                continue
+            new_urls.add(url)
+            all_results.append(
+                SearchResult(
+                    title=result["title"],
+                    url=url,
+                    content=result["content"],
+                    score=result["score"],
+                )
+            )
+
+    logger.info(f"Tavily 搜尋完成，取得 {len(all_results)} 筆不重複結果")
+
+    if not all_results:
+        logger.warning("搜尋無結果，跳過 source filtering")
+        return {
+            "content_node_knowledge": {"synthesized_knowledge": ""},
+            "content_search_queries_history": previous_queries + [queries],
+            "content_search_urls_seen": list(urls_seen | new_urls),
+        }
+
+    # ── 5. LLM source filtering ──
+    filter_formatted = "\n\n".join(
+        f"=== 來源 {i + 1}: {r.title} ===\nURL: {r.url}\n{r.content}"
+        for i, r in enumerate(all_results)
+    )
+
+    filter_model = init_chat_model(
+        model=runtime.context.content_model,
+        model_provider="openai",
+        api_key=runtime.context.openrouter_api_key,
+        base_url=runtime.context.base_url,
+        temperature=0,
+    )
+    filter_prompt = SEARCH_RESULT_FILTER_PROMPT.format(
+        topic=topic,
+        label=node_label,
+        node_type=node_type,
+        description=current_node.get("description", ""),
+        search_results=filter_formatted,
+    )
+    filter_result = filter_model.with_structured_output(SourceFilterResponse).invoke(
+        filter_prompt, config=_make_llm_config(state, "source_filter")
+    )
+
+    kept_indices = {s.index for s in filter_result.results if s.score >= 6}
+    filtered_results = [r for i, r in enumerate(all_results) if (i + 1) in kept_indices]
+    logger.info(f"Source filtering 保留 {len(filtered_results)}/{len(all_results)} 個來源")
+
+    # ── 6. 組裝 synthesized_knowledge + sources ──
+    synthesized_knowledge = "\n\n".join(
+        f"=== Tavily 整合摘要 {i + 1} ===\n{a}"
+        for i, a in enumerate(tavily_answers)
+    ) if tavily_answers else ""
 
     sources = [
         {
-            "title": r["title"],
-            "url": r["url"],
-            "snippet": r.get("content", ""),
-            "score": r.get("score", 0),
+            "title": r.title,
+            "url": r.url,
+            "snippet": r.content,
+            "score": r.score,
         }
-        for r in response.get("results", [])
+        for r in filtered_results
     ]
-    logger.info(f"擷取 {len(sources)} 個來源片段")
 
     return {
         "content_node_knowledge": {
-            "synthesized_knowledge": answer,
+            "synthesized_knowledge": synthesized_knowledge,
             "sources": sources,
-        }
+        },
+        "content_search_queries_history": previous_queries + [queries],
+        "content_search_urls_seen": list(urls_seen | new_urls),
     }
 
 
@@ -564,6 +644,8 @@ def content_advance_node(state: ContentState, runtime: Runtime[ContextSchema]) -
         "content_node_knowledge": {},
         "content_node_retry_target": "",
         "content_node_feedback_history": [],
+        "content_search_queries_history": [],
+        "content_search_urls_seen": [],
     }
 
     if is_failure:

@@ -59,6 +59,8 @@ class ContentState(TypedDict):
     content_node_retries: int
     content_node_retry_target: str
     content_node_feedback_history: list[str]
+    content_search_queries_history: list[list[str]]
+    content_search_urls_seen: list[str]
 
 
 @dataclass
@@ -265,8 +267,8 @@ class SearchQueryResult(BaseModel):
     reasoning: str = Field(
         description="思考過程：分析節點主題、考慮 critic feedback（如有），決定最佳搜尋方向"
     )
-    query: str = Field(
-        description="5-10 words English search query"
+    queries: list[str] = Field(
+        description="3 different 5-10 word English search queries, each targeting a different angle"
     )
 
 

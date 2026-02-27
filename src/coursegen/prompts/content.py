@@ -8,27 +8,54 @@ Content Generation Prompts
 # ============================================================
 # Search Query Generation — 為單一節點生成 Tavily 搜尋 query
 # ============================================================
-SEARCH_QUERY_GENERATION_PROMPT = """Generate a concise search query for a Tavily web search.
+SEARCH_QUERY_GENERATION_PROMPT = """Generate 3 different search queries for a Tavily web search to gather comprehensive information for a learning node.
 
 Topic: {topic}
 Node type: {node_type}
 Node label: {label}
 Node description: {description}
 
+Generate 3 queries that each return DIFFERENT kinds of results. Adapt angles to the node type:
+- prerequisite: (1) what learners need to know (2) setup guides or tutorials (3) common knowledge gaps
+- concept: (1) definition and core principles (2) practical examples or tutorials (3) underlying mechanics or internals
+- pitfall: (1) common mistakes or errors (2) debugging tips or error messages (3) correct patterns or best practices
+- comparison: (1) side-by-side comparison (2) performance or technical benchmarks (3) when to use which
+- practice: (1) hands-on exercises or projects (2) step-by-step implementation guides (3) solution approaches or patterns
+
 Rules:
-- 5-10 words maximum
-- In English regardless of input language
+- Each query: 5-10 words
+- All queries in English regardless of input language
 - Translate the node label LITERALLY to English and combine with the topic
 - You may include synonyms of words already in the label (e.g. "errors" → also "mistakes")
 - Do NOT add technical terms or concepts not present in the label or description
 - Do NOT substitute or "correct" the label based on your own knowledge. If the label says "長槍" (spear), search for "spear", NOT "mace" or any other weapon you think might be more accurate.
 - Your job is to faithfully translate and search, not to fact-check the label.
-
-Examples:
-- topic="Python", label="記憶體管理", type="concept" → "Python memory management concept"
-- topic="React", label="常見錯誤", type="pitfall" → "React common errors pitfalls"
-- topic="Minecraft Java Beta 1.0", label="環境準備與先備知識", type="prerequisite" → "Minecraft Java Beta 1.0 setup prerequisites"
+- Each query must be meaningfully different from the others
+- If previous queries are listed, generate NEW angles that don't overlap
 {critic_feedback}
+{previous_queries}
+"""
+
+# ============================================================
+# Search Result Filter — 為 content node 過濾搜尋來源
+# ============================================================
+SEARCH_RESULT_FILTER_PROMPT = """你是一個教學內容策展人。請評估以下搜尋結果對撰寫「{label}」教學節點的相關程度。
+
+## 節點資訊
+- 課程主題: {topic}
+- 節點名稱: {label}
+- 節點類型: {node_type}
+- 節點描述: {description}
+
+## 評分標準
+- 8-10：高度相關 — 直接涵蓋此節點需要教授的核心內容、範例或細節
+- 5-7：部分相關 — 有部分有用的背景知識，但非此節點的重點
+- 0-4：不相關 — 偏題、廣告性質、或內容太淺薄
+
+## 搜尋結果
+{search_results}
+
+請為每個來源評分，評分要嚴格，寧缺勿濫。
 """
 
 # ============================================================
