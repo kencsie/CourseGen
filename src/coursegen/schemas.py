@@ -72,6 +72,7 @@ class ContextSchema:
     roadmap_critic_model: str = "google/gemini-3-flash-preview"
     max_iterations: int = 3
     content_model: str = "google/gemini-3-flash-preview"
+    content_critic_model: str = "google/gemini-3-flash-preview"
     content_max_retries: int = 3
 
 

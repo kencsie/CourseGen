@@ -31,7 +31,6 @@ from coursegen.schemas import (
 from coursegen.prompts.content import (
     CONTENT_PROMPTS,
     CONTENT_CRITIC_PROMPT,
-    CONTENT_KNOWLEDGE_SYNTHESIS_PROMPT,
     SEARCH_QUERY_GENERATION_PROMPT,
     SEARCH_RESULT_FILTER_PROMPT,
 )
@@ -545,7 +544,7 @@ def content_critic_node(state: ContentState, runtime: Runtime[ContextSchema]) ->
 
     # 呼叫 LLM
     model = init_chat_model(
-        model=runtime.context.content_model,
+        model=runtime.context.content_critic_model,
         model_provider="openai",
         api_key=runtime.context.openrouter_api_key,
         base_url=runtime.context.base_url,
