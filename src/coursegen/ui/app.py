@@ -48,10 +48,7 @@ NODE_LABELS = {
     # Phase 1: Roadmap
     "knowledge_search_node": ("🔍 搜尋相關知識...", "roadmap"),
     "roadmap_node": ("🗺️ 生成學習路徑...", "roadmap"),
-    "critic_1_node": ("🤖 評審 1 審核中...", "roadmap"),
-    "critic_2_node": ("🤖 評審 2 審核中...", "roadmap"),
-    "critic_3_node": ("🤖 評審 3 審核中...", "roadmap"),
-    "aggregator_node": ("📊 整合評審意見...", "roadmap"),
+    "roadmap_critic_node": ("🤖 審核學習路徑...", "roadmap"),
     # Phase 2: Content
     "content_planning_node": ("📋 規劃內容順序...", "content"),
     "content_knowledge_search_node": ("🔎 搜尋節點知識...", "content"),
@@ -97,6 +94,7 @@ def generate_roadmap(question: str, preferences: UserPreferences):
                 "max_iterations": int(os.getenv("MAX_ITERATIONS", "3")),
                 "tavily_api_key": os.getenv("TAVILY_KEY"),
                 "content_model": os.getenv("CONTENT_MODEL", "google/gemini-3-flash-preview"),
+                "content_critic_model": os.getenv("CONTENT_CRITIC_MODEL", "google/gemini-3-flash-preview"),
                 "content_max_retries": int(os.getenv("CONTENT_MAX_RETRIES", "3")),
             }
 
@@ -105,8 +103,8 @@ def generate_roadmap(question: str, preferences: UserPreferences):
 
             # --- Streaming with progress tracking ---
             max_iterations = int(os.getenv("MAX_ITERATIONS", "3"))
-            # Roadmap phase: worst-case steps = (1 + 1 + 3 + 1) * max_iterations
-            roadmap_steps_per_iter = 6  # knowledge_search + roadmap + 3 critics + aggregator
+            # Roadmap phase: worst-case steps = (search + generation + critic) * max_iterations
+            roadmap_steps_per_iter = 3  # knowledge_search + roadmap + roadmap_critic
             est_roadmap_steps = roadmap_steps_per_iter * max_iterations
 
             roadmap_steps_done = 0
@@ -191,9 +189,6 @@ def generate_roadmap(question: str, preferences: UserPreferences):
 
             end_time = time.time()
             elapsed = end_time - start_time
-
-            if not result.get("roadmap_is_valid", False):
-                st.error("⚠️ Roadmap 驗證失敗，但仍會顯示結果")
 
             step_text.write(f"✅ 生成完成！耗時 {elapsed:.1f} 秒")
 
