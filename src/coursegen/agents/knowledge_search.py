@@ -77,10 +77,20 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
         critic_feedback=critic_feedback_str,
         previous_queries=previous_queries_str,
     )
-    query_result = query_model.with_structured_output(RoadmapSearchQueryResult).invoke(query_prompt)
-    queries = [q.strip() for q in query_result.queries]
-    logger.info(f"搜尋 reasoning: {query_result.reasoning[:100]}...")
-    logger.info(f"生成 {len(queries)} 個 queries: {queries}")
+    try:
+        query_chain = query_model.with_structured_output(RoadmapSearchQueryResult).with_retry(
+            stop_after_attempt=3,
+        )
+        query_result = query_chain.invoke(query_prompt)
+        queries = [q.strip() for q in query_result.queries]
+        logger.info(f"搜尋 reasoning: {query_result.reasoning[:100]}...")
+        logger.info(f"生成 {len(queries)} 個 queries: {queries}")
+    except Exception as e:
+        logger.warning(f"Query 生成重試 3 次仍失敗: {e}")
+        return {
+            "roadmap_search_queries_history": previous_queries,
+            "roadmap_search_urls_seen": list(urls_seen),
+        }
 
     # ── 4. 每個 query 做 Tavily search，合併 + URL 去重 ──
     all_results: list[SearchResult] = []
@@ -144,12 +154,24 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
         topic=state.get("question"),
         search_results=filter_formatted,
     )
-    filter_result = filter_model.with_structured_output(SourceFilterResponse).invoke(filter_prompt)
+    try:
+        filter_chain = filter_model.with_structured_output(SourceFilterResponse).with_retry(
+            stop_after_attempt=3,
+        )
+        filter_result = filter_chain.invoke(filter_prompt)
+        kept_indices = {s.index for s in filter_result.results if s.score >= 6}
+        filtered_results = [r for i, r in enumerate(all_results) if (i + 1) in kept_indices]
+        logger.info(f"Source filtering 保留 {len(filtered_results)}/{len(all_results)} 個來源")
+    except Exception as e:
+        logger.warning(f"Source filtering 重試 3 次仍失敗，使用空結果: {e}")
+        filtered_results = []
 
-    # 過濾：只保留 score >= 6
-    kept_indices = {s.index for s in filter_result.results if s.score >= 6}
-    filtered_results = [r for i, r in enumerate(all_results) if (i + 1) in kept_indices]
-    logger.info(f"Source filtering 保留 {len(filtered_results)}/{len(all_results)} 個來源")
+    if not filtered_results:
+        logger.warning("過濾後無結果，跳過 knowledge synthesis")
+        return {
+            "roadmap_search_queries_history": previous_queries + [queries],
+            "roadmap_search_urls_seen": list(urls_seen | new_urls),
+        }
 
     # ── 6. Knowledge synthesis ──
     synthesis_formatted = "\n\n".join(
@@ -172,15 +194,18 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
 
     logger.info("LLM 統整知識中...")
 
-    response = synthesis_model.invoke(
-        KNOWLEDGE_SYNTHESIS_PROMPT.format(
-            question=state.get("question"),
-            search_results=synthesis_formatted,
-            tavily_answers=answers_formatted,
+    try:
+        response = synthesis_model.with_retry(stop_after_attempt=3).invoke(
+            KNOWLEDGE_SYNTHESIS_PROMPT.format(
+                question=state.get("question"),
+                search_results=synthesis_formatted,
+                tavily_answers=answers_formatted,
+            )
         )
-    )
-
-    synthesized = str(response.content)
+        synthesized = str(response.content)
+    except Exception as e:
+        logger.warning(f"Knowledge synthesis 重試 3 次仍失敗: {e}")
+        synthesized = ""
     logger.info(f"知識統整完成，長度: {len(synthesized)} 字")
 
     # ── 7. 回傳結果 + 搜尋歷史更新 ──
