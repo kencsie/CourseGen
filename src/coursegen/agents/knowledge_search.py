@@ -151,10 +151,6 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
     filtered_results = [r for i, r in enumerate(all_results) if (i + 1) in kept_indices]
     logger.info(f"Source filtering 保留 {len(filtered_results)}/{len(all_results)} 個來源")
 
-    if not filtered_results:
-        logger.warning("過濾後無結果，使用全部結果")
-        filtered_results = all_results
-
     # ── 6. Knowledge synthesis ──
     synthesis_formatted = "\n\n".join(
         f"=== 來源 {i + 1}: {r.title} ===\nURL: {r.url}\n{r.content}"
