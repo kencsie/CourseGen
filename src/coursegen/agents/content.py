@@ -279,12 +279,19 @@ def content_knowledge_search_node(
         critic_feedback=critic_feedback_str,
         previous_queries=previous_queries_str,
     )
-    query_result = model.with_structured_output(SearchQueryResult).invoke(
-        query_prompt, config=_make_llm_config(state, "search_query")
-    )
-    queries = [q.strip() for q in query_result.queries]
-    logger.info(f"搜尋 reasoning: {query_result.reasoning[:100]}...")
-    logger.info(f"生成 {len(queries)} 個 queries: {queries}")
+    try:
+        query_chain = model.with_structured_output(SearchQueryResult).with_retry(
+            stop_after_attempt=3,
+        )
+        query_result = query_chain.invoke(
+            query_prompt, config=_make_llm_config(state, "search_query")
+        )
+        queries = [q.strip() for q in query_result.queries]
+        logger.info(f"搜尋 reasoning: {query_result.reasoning[:100]}...")
+        logger.info(f"生成 {len(queries)} 個 queries: {queries}")
+    except Exception as e:
+        logger.warning(f"Content search query 生成重試 3 次仍失敗: {e}")
+        return {"content_node_knowledge": {"synthesized_knowledge": ""}}
 
     # ── 4. Multi-query Tavily search + URL 去重 ──
     tavily_client = TavilyClient(api_key=runtime.context.tavily_api_key)
@@ -353,13 +360,19 @@ def content_knowledge_search_node(
         description=current_node.get("description", ""),
         search_results=filter_formatted,
     )
-    filter_result = filter_model.with_structured_output(SourceFilterResponse).invoke(
-        filter_prompt, config=_make_llm_config(state, "source_filter")
-    )
-
-    kept_indices = {s.index for s in filter_result.results if s.score >= 6}
-    filtered_results = [r for i, r in enumerate(all_results) if (i + 1) in kept_indices]
-    logger.info(f"Source filtering 保留 {len(filtered_results)}/{len(all_results)} 個來源")
+    try:
+        filter_chain = filter_model.with_structured_output(SourceFilterResponse).with_retry(
+            stop_after_attempt=3,
+        )
+        filter_result = filter_chain.invoke(
+            filter_prompt, config=_make_llm_config(state, "source_filter")
+        )
+        kept_indices = {s.index for s in filter_result.results if s.score >= 6}
+        filtered_results = [r for i, r in enumerate(all_results) if (i + 1) in kept_indices]
+        logger.info(f"Source filtering 保留 {len(filtered_results)}/{len(all_results)} 個來源")
+    except Exception as e:
+        logger.warning(f"Source filtering 重試 3 次仍失敗，使用空結果: {e}")
+        filtered_results = []
 
     # ── 6. 組裝 synthesized_knowledge + sources ──
     synthesized_knowledge = "\n\n".join(
@@ -462,7 +475,9 @@ def content_generation_node(
         base_url=runtime.context.base_url,
         temperature=0.1,
     )
-    model_structured = model.with_structured_output(content_model)
+    model_structured = model.with_structured_output(content_model).with_retry(
+        stop_after_attempt=3,
+    )
 
     try:
         result = model_structured.invoke(prompt_template, config=_make_llm_config(state, "generation"))
@@ -536,7 +551,9 @@ def content_critic_node(state: ContentState, runtime: Runtime[ContextSchema]) ->
         base_url=runtime.context.base_url,
         temperature=0,
     )
-    model_structured = model.with_structured_output(ContentValidationResult)
+    model_structured = model.with_structured_output(ContentValidationResult).with_retry(
+        stop_after_attempt=3,
+    )
 
     try:
         result = model_structured.invoke(formatted_prompt, config=_make_llm_config(state, "critic"))
