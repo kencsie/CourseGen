@@ -8,30 +8,25 @@ Content Generation Prompts
 # ============================================================
 # Search Query Generation — 為單一節點生成 Tavily 搜尋 query
 # ============================================================
-SEARCH_QUERY_GENERATION_PROMPT = """Generate 3 different search queries for a Tavily web search to gather comprehensive information for a learning node.
+SEARCH_QUERY_GENERATION_PROMPT = """Generate 3 short keyword search queries for a Tavily web search to gather information for a learning node.
 
-Topic: {topic}
-Node type: {node_type}
+Topic keyword: {topic_keyword}
 Node label: {label}
 Node description: {description}
 
-Generate 3 queries that each return DIFFERENT kinds of results. Adapt angles to the node type:
-- prerequisite: (1) what learners need to know (2) setup guides or tutorials (3) common knowledge gaps
-- concept: (1) definition and core principles (2) practical examples or tutorials (3) underlying mechanics or internals
-- pitfall: (1) common mistakes or errors (2) debugging tips or error messages (3) correct patterns or best practices
-- comparison: (1) side-by-side comparison (2) performance or technical benchmarks (3) when to use which
-- practice: (1) hands-on exercises or projects (2) step-by-step implementation guides (3) solution approaches or patterns
+Step 1 — Translate the node label to English literally.
+Step 2 — Generate 3 queries:
+- Query 1: topic_keyword + translated node label
+- Query 2: topic_keyword + 1-2 English keyword (variant angle)
+- Query 3: topic_keyword + 1-2 different English keyword (another angle)
 
 Rules:
-- Each query: 5-10 words
 - All queries in English regardless of input language
-- Translate the node label LITERALLY to English and combine with the topic
-- You may include synonyms of words already in the label (e.g. "errors" → also "mistakes")
 - Do NOT add technical terms or concepts not present in the label or description
 - Do NOT substitute or "correct" the label based on your own knowledge. If the label says "長槍" (spear), search for "spear", NOT "mace" or any other weapon you think might be more accurate.
 - Your job is to faithfully translate and search, not to fact-check the label.
 - Each query must be meaningfully different from the others
-- If previous queries are listed, generate NEW angles that don't overlap
+- If previous queries are listed, generate NEW keyword combinations that don't overlap
 {critic_feedback}
 {previous_queries}
 """

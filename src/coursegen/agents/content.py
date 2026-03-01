@@ -226,7 +226,7 @@ def content_knowledge_search_node(
 
     node_label = current_node["label"]
     node_type = current_node["type"]
-    topic = state["roadmap"]["topic"]
+    topic_keyword = state["topic_keyword"]
 
     logger.info(
         f"搜尋節點 [{current_index}] {current_node_id} ({node_type}): {node_label}"
@@ -271,8 +271,7 @@ def content_knowledge_search_node(
         temperature=0,
     )
     query_prompt = SEARCH_QUERY_GENERATION_PROMPT.format(
-        topic=topic,
-        node_type=node_type,
+        topic_keyword=topic_keyword,
         label=node_label,
         description=current_node.get("description", ""),
         critic_feedback=critic_feedback_str,
@@ -353,7 +352,7 @@ def content_knowledge_search_node(
         temperature=0,
     )
     filter_prompt = SEARCH_RESULT_FILTER_PROMPT.format(
-        topic=topic,
+        topic=state["roadmap"]["topic"],
         label=node_label,
         node_type=node_type,
         description=current_node.get("description", ""),

@@ -1,21 +1,24 @@
-ROADMAP_SEARCH_QUERY_PROMPT = """Generate 3 different search queries for Tavily web search to gather comprehensive information for designing a learning roadmap.
+ROADMAP_SEARCH_QUERY_PROMPT = """Generate 3 short keyword search queries for Tavily web search to gather information for designing a learning roadmap.
 
 User question: {question}
 {critic_feedback}
 {previous_queries}
 
-Each query should target a different angle:
-1. Overview & core concepts — what the topic is, key terminology, fundamentals
-2. Learning path & prerequisites — recommended learning order, what to learn first
-3. Common pitfalls & advanced topics — mistakes beginners make, deeper aspects
+Step 1 — Extract topic_keyword:
+- From the user's question, extract the core topic as a short keyword (nouns/proper nouns only, no verbs or particles).
+- Examples: "我想學習如何玩 Minecraft 1.21.11" → "Minecraft 1.21.11", "桌球殺球技巧" → "桌球殺球"
+
+Step 2 — Generate 3 queries:
+- Query 1: topic_keyword ONLY (no extra words)
+- Query 2: topic_keyword + 1-2 English keyword
+- Query 3: topic_keyword + 1-2 different English keyword
 
 Rules:
-- Each query: 5-10 words
-- All queries in English regardless of input language
-- Preserve the user's exact terms, version numbers, and proper nouns (e.g. "Minecraft 1.21.11" must NOT become "Minecraft 1.21.1")
+- All queries in English regardless of input language (translate topic_keyword to English if needed)
+- Preserve the user's exact version numbers and proper nouns (e.g. "Minecraft 1.21.11" must NOT become "Minecraft 1.21.1")
 - Stay faithful to the user's actual topic — do not drift to related-but-different subjects
 - Each query must be meaningfully different from the others
-- If previous queries are listed, generate NEW angles that don't overlap
+- If previous queries are listed, generate NEW keyword combinations that don't overlap
 """
 
 ROADMAP_GENERATION_PROMPT = """

@@ -83,6 +83,8 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
         )
         query_result = query_chain.invoke(query_prompt)
         queries = [q.strip() for q in query_result.queries]
+        topic_keyword = query_result.topic_keyword.strip()
+        logger.info(f"topic_keyword: {topic_keyword}")
         logger.info(f"搜尋 reasoning: {query_result.reasoning[:100]}...")
         logger.info(f"生成 {len(queries)} 個 queries: {queries}")
     except Exception as e:
@@ -210,6 +212,7 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
 
     # ── 7. 回傳結果 + 搜尋歷史更新 ──
     return {
+        "topic_keyword": topic_keyword,
         "knowledge_context": KnowledgeContext(
             query=state.get("question"),
             results=filtered_results,

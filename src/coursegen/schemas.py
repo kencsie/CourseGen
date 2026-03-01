@@ -19,6 +19,7 @@ class AppState(TypedDict):
     """Top-level graph state — 僅負責兩個 subgraph 之間的交接。"""
     question: str
     user_preferences: str
+    topic_keyword: str                                 # LLM 從問句提取的精簡主題關鍵字
     roadmap: dict                                      # RoadmapSubgraph 輸出，ContentSubgraph 輸入
     content_order: list[str]                           # ContentSubgraph 輸出
     content_map: Annotated[dict, dict_merge_reducer]   # ContentSubgraph 輸出
@@ -30,6 +31,7 @@ class RoadmapState(TypedDict):
     # 從 AppState 橋接進來
     question: str
     user_preferences: str
+    topic_keyword: str                                 # 輸出回 AppState
     roadmap: dict                                      # 輸出回 AppState
     # 私有欄位
     roadmap_feedback: list[dict]
@@ -49,6 +51,7 @@ class ContentState(TypedDict):
     # 從 AppState 橋接進來
     roadmap: dict
     user_preferences: str
+    topic_keyword: str                                 # 從 AppState 橋接進來
     content_order: list[str]                           # 輸出回 AppState
     content_map: Annotated[dict, dict_merge_reducer]   # 輸出回 AppState
     content_failed_nodes: list[str]                    # 輸出回 AppState
@@ -246,17 +249,20 @@ class SearchQueryResult(BaseModel):
         description="思考過程：分析節點主題、考慮 critic feedback（如有），決定最佳搜尋方向"
     )
     queries: list[str] = Field(
-        description="3 different 5-10 word English search queries, each targeting a different angle"
+        description="3 short keyword queries: first is topic_keyword + node label, others are topic_keyword + 1-2 word keyword"
     )
 
 
 class RoadmapSearchQueryResult(BaseModel):
     """Roadmap search query generation 的結構化輸出"""
+    topic_keyword: str = Field(
+        description="從使用者問句提取的精簡主題關鍵字，例：'Minecraft 1.21.11'、'桌球殺球'"
+    )
     reasoning: str = Field(
         description="思考過程：分析使用者問題與 critic feedback（如有），決定最佳搜尋方向"
     )
     queries: list[str] = Field(
-        description="3 different 5-10 word English search queries, each targeting a different angle"
+        description="3 short keyword queries: first is topic_keyword only, others are topic_keyword + 1-2 word keyword"
     )
 
 
