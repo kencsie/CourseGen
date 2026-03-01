@@ -18,8 +18,6 @@ class GenerationRecord(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     topic = Column(String, nullable=False)
-    difficulty = Column(String, nullable=False)
-    goal = Column(String, nullable=False)
     language = Column(String, nullable=False)
     created_at = Column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)

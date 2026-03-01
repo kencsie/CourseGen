@@ -13,8 +13,6 @@ from coursegen.db.models import GenerationRecord
 def save_generation(
     *,
     topic: str,
-    difficulty: str,
-    goal: str,
     language: str,
     roadmap: dict,
     content_map: dict | None = None,
@@ -30,8 +28,6 @@ def save_generation(
     record = GenerationRecord(
         id=record_id,
         topic=topic,
-        difficulty=difficulty,
-        goal=goal,
         language=language,
         created_at=datetime.now(timezone.utc),
         generation_time_sec=generation_time_sec,
@@ -61,8 +57,6 @@ def list_generations(limit: int = 20) -> list[dict]:
             {
                 "id": r.id,
                 "topic": r.topic,
-                "difficulty": r.difficulty,
-                "goal": r.goal,
                 "language": r.language,
                 "created_at": r.created_at,
                 "node_count": len(r.roadmap_json.get("nodes", []))
@@ -82,8 +76,6 @@ def load_generation(record_id: str) -> dict | None:
         return {
             "id": record.id,
             "topic": record.topic,
-            "difficulty": record.difficulty,
-            "goal": record.goal,
             "language": record.language,
             "created_at": record.created_at,
             "generation_time_sec": record.generation_time_sec,
