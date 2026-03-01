@@ -1,4 +1,4 @@
-from coursegen.schemas import Language, UserPreferences, LearningGoal, DifficultyLevel
+from coursegen.schemas import Language, UserPreferences
 import os
 from coursegen.agents.roadmap import roadmap_node
 from coursegen.agents.knowledge_search import knowledge_search_node
@@ -128,11 +128,7 @@ if __name__ == "__main__":
 
     langfuse_handler = CallbackHandler()
 
-    prefs_novice = UserPreferences(
-        level=DifficultyLevel.BEGINNER,
-        goal=LearningGoal.QUICK_START,
-        language=Language.ZH_TW,
-    )
+    prefs_novice = UserPreferences(language=Language.ZH_TW)
 
     result = graph.invoke(
         {

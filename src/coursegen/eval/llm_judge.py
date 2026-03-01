@@ -35,8 +35,6 @@ _JUDGE_PROMPT = """\
 {topic}
 
 ## 學習者設定
-- 難度: {difficulty}
-- 目標: {goal}
 - 語言: {language}
 
 ## 學習路徑 (Roadmap)
@@ -75,8 +73,6 @@ def _build_prompt(generation: dict) -> str:
 
     return _JUDGE_PROMPT.format(
         topic=generation["topic"],
-        difficulty=generation.get("difficulty", "N/A"),
-        goal=generation.get("goal", "N/A"),
         language=generation.get("language", "N/A"),
         roadmap_json=json.dumps(generation.get("roadmap", {}), ensure_ascii=False, indent=2),
         content_map_json=json.dumps(clean_content, ensure_ascii=False, indent=2),

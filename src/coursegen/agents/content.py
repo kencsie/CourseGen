@@ -879,7 +879,7 @@ if __name__ == "__main__":
     # spear-vs-sword 依賴 spear-basics（已在 content_map 中）
     test_state_a = {
         "roadmap": mock_roadmap,
-        "user_preferences": "- Target Audience Level: BEGINNER\n- Learning Goal: QUICK_START\n- Preferred Language: Traditional Chinese (繁體中文)",
+        "user_preferences": "- Preferred Language: Traditional Chinese (繁體中文)",
         "content_order": order,
         "content_current_index": order.index("spear-vs-sword"),
         "content_map": mock_content_map,
@@ -905,7 +905,7 @@ if __name__ == "__main__":
     # survival-challenge 依賴 4 個節點，但 env-attributes-intro 失敗了
     test_state_b = {
         "roadmap": mock_roadmap,
-        "user_preferences": "- Target Audience Level: BEGINNER\n- Learning Goal: QUICK_START\n- Preferred Language: Traditional Chinese (繁體中文)",
+        "user_preferences": "- Preferred Language: Traditional Chinese (繁體中文)",
         "content_order": order,
         "content_current_index": order.index("survival-challenge"),
         "content_map": mock_content_map,  # 只有 pre-check, spear-basics, mount-taming
@@ -934,7 +934,7 @@ if __name__ == "__main__":
     # --- 情境 C: 無父節點的 prerequisite 節點 ---
     test_state_c = {
         "roadmap": mock_roadmap,
-        "user_preferences": "- Target Audience Level: BEGINNER\n- Learning Goal: QUICK_START\n- Preferred Language: Traditional Chinese (繁體中文)",
+        "user_preferences": "- Preferred Language: Traditional Chinese (繁體中文)",
         "content_order": order,
         "content_current_index": order.index("pre-check"),
         "content_map": {},
