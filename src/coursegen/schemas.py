@@ -76,42 +76,19 @@ class ContextSchema:
     content_max_retries: int = 3
 
 
-class DifficultyLevel(str, Enum):
-    BEGINNER = "Beginner (新手 - 從零開始)"
-    INTERMEDIATE = "Intermediate (有經驗 - 尋求進階)"
-    ADVANCED = "Advanced (專家 - 查漏補缺)"
-
-
-class LearningGoal(str, Enum):
-    QUICK_START = "Quick Start (快速入門/速成)"
-    DEEP_DIVE = "Deep Dive (深入精通/底層原理)"
-
-
 class Language(str, Enum):
     ZH_TW = "Traditional Chinese (繁體中文)"
     EN = "English (英文)"
 
 
 class UserPreferences(BaseModel):
-    level: DifficultyLevel = Field(
-        default=DifficultyLevel.BEGINNER,
-        description="當前使用者知識水平",
-    )
-    goal: LearningGoal = Field(
-        default=LearningGoal.DEEP_DIVE, description="主要學習目標"
-    )
     language: Language = Field(
         default=Language.ZH_TW,
         description="生成roadmap與內容的語言",
     )
 
-    # 這是給 Prompt 用的 helper method，轉成自然的英文描述
     def to_prompt_context(self) -> str:
-        return f"""
-        - Target Audience Level: {self.level.name}
-        - Learning Goal: {self.goal.name}
-        - Preferred Language: {self.language.value}
-        """
+        return f"- Preferred Language: {self.language.value}"
 
 
 class NodeType(str, Enum):
