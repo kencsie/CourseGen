@@ -11,7 +11,7 @@ Step 1 — Extract topic_keyword:
 Step 2 — Generate 3 queries:
 - Query 1: topic_keyword ONLY (no extra words)
 - Query 2: topic_keyword + 1-2 English keyword
-- Query 3: topic_keyword + 1-2 different English keyword
+- Query 3: If the topic has a version number and the question is about learning/getting started, generate a broader query WITHOUT the version number (just the product name + learning keyword). Otherwise, use topic_keyword + 1-2 different English keyword.
 
 Rules:
 - All queries in English regardless of input language (translate topic_keyword to English if needed)

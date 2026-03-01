@@ -18,7 +18,7 @@ Step 1 — Translate the node label to English literally.
 Step 2 — Generate 3 queries:
 - Query 1: topic_keyword + translated node label
 - Query 2: topic_keyword + 1-2 English keyword (variant angle)
-- Query 3: topic_keyword + 1-2 different English keyword (another angle)
+- Query 3: If the node is about basic/universal knowledge (e.g., basic controls, UI, getting started, fundamentals), generate a query WITHOUT the version number — use only the product/game name + keywords. Otherwise, use topic_keyword + 1-2 different English keyword (another angle).
 
 Rules:
 - All queries in English regardless of input language
