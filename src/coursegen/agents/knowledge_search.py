@@ -105,6 +105,7 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
                 query=q,
                 search_depth="advanced",
                 include_answer="advanced",
+                include_raw_content="markdown",
                 exclude_domains=["youtube.com"],
             )
         except Exception as e:
@@ -127,6 +128,7 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
                     url=url,
                     content=result["content"],
                     score=result["score"],
+                    raw_content=result.get("raw_content") or None,
                 )
             )
 
@@ -177,7 +179,7 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
 
     # ── 6. Knowledge synthesis ──
     synthesis_formatted = "\n\n".join(
-        f"=== 來源 {i + 1}: {r.title} ===\nURL: {r.url}\n{r.content}"
+        f"=== 來源 {i + 1}: {r.title} ===\nURL: {r.url}\n{r.raw_content or r.content}"
         for i, r in enumerate(filtered_results)
     )
 

@@ -303,6 +303,7 @@ def content_knowledge_search_node(
                 query=q,
                 search_depth="advanced",
                 include_answer="advanced",
+                include_raw_content="markdown",
                 exclude_domains=["youtube.com"],
             )
         except Exception as e:
@@ -325,6 +326,7 @@ def content_knowledge_search_node(
                     url=url,
                     content=result["content"],
                     score=result["score"],
+                    raw_content=result.get("raw_content") or None,
                 )
             )
 
@@ -382,7 +384,7 @@ def content_knowledge_search_node(
         {
             "title": r.title,
             "url": r.url,
-            "snippet": r.content,
+            "snippet": r.raw_content or r.content,
             "score": r.score,
         }
         for r in filtered_results
