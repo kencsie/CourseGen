@@ -99,7 +99,7 @@ def generate_roadmap(question: str, preferences: UserPreferences):
             }
 
             st.write(f"📝 主題: {question}")
-            st.write(f"🎯 難度: {preferences.level.name} ｜ 🎨 目標: {preferences.goal.name} ｜ 🌐 語言: {preferences.language.value}")
+            st.write(f"🌐 語言: {preferences.language.value}")
 
             # --- Streaming with progress tracking ---
             max_iterations = int(os.getenv("MAX_ITERATIONS", "3"))
@@ -261,8 +261,6 @@ def render_sidebar():
                 roadmap = result["roadmap"]
                 record_id = save_generation(
                     topic=roadmap.get("topic", "未命名"),
-                    difficulty=preferences.level.name,
-                    goal=preferences.goal.name,
                     language=preferences.language.value,
                     roadmap=roadmap,
                     content_map=st.session_state.content_map,
@@ -377,7 +375,7 @@ def render_main_content():
         ### 使用教學
 
         1. 在左側側邊欄輸入您想學習的主題
-        2. 選擇難度等級、學習目標和語言
+        2. 選擇語言
         3. 點擊「生成 Roadmap」按鈕
         4. 等待 30-60 秒，系統會生成個性化的學習路徑
 
