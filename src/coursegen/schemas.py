@@ -69,10 +69,10 @@ class ContextSchema:
     base_url: str
     openrouter_api_key: str
     tavily_api_key: Optional[str] = None
-    roadmap_critic_model: str = "google/gemini-3-flash-preview"
+    roadmap_critic_model: str = "openai/gpt-5.2"
     max_iterations: int = 3
-    content_model: str = "google/gemini-3-flash-preview"
-    content_critic_model: str = "google/gemini-3-flash-preview"
+    content_model: str = "openai/gpt-5.2"
+    content_critic_model: str = "openai/gpt-5.2"
     content_max_retries: int = 3
 
 
@@ -285,8 +285,8 @@ class RoadmapSearchQueryResult(BaseModel):
 
 class SourceScore(BaseModel):
     index: int = Field(description="來源編號（從 1 開始）")
-    score: int = Field(description="相關性評分 0-10")
     reason: str = Field(description="評分原因")
+    score: int = Field(description="相關性評分 0-10")
 
 
 class SourceFilterResponse(BaseModel):

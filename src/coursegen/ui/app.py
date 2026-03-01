@@ -87,14 +87,14 @@ def generate_roadmap(question: str, preferences: UserPreferences):
 
         try:
             context = {
-                "model_name": os.getenv("MODEL_NAME", "google/gemini-3-flash-preview"),
+                "model_name": os.getenv("MODEL_NAME", "openai/gpt-5.2"),
                 "base_url": os.getenv("BASE_URL"),
                 "openrouter_api_key": os.getenv("OPENROUTER_API_KEY"),
-                "roadmap_critic_model": os.getenv("ROADMAP_CRITIC_MODEL", "google/gemini-3-flash-preview"),
+                "roadmap_critic_model": os.getenv("ROADMAP_CRITIC_MODEL", "openai/gpt-5.2"),
                 "max_iterations": int(os.getenv("MAX_ITERATIONS", "3")),
                 "tavily_api_key": os.getenv("TAVILY_KEY"),
-                "content_model": os.getenv("CONTENT_MODEL", "google/gemini-3-flash-preview"),
-                "content_critic_model": os.getenv("CONTENT_CRITIC_MODEL", "google/gemini-3-flash-preview"),
+                "content_model": os.getenv("CONTENT_MODEL", "openai/gpt-5.2"),
+                "content_critic_model": os.getenv("CONTENT_CRITIC_MODEL", "openai/gpt-5.2"),
                 "content_max_retries": int(os.getenv("CONTENT_MAX_RETRIES", "3")),
             }
 
