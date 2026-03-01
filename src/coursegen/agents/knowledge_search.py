@@ -163,7 +163,10 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
             stop_after_attempt=3,
         )
         filter_result = filter_chain.invoke(filter_prompt)
-        kept_indices = {s.index for s in filter_result.results if s.score >= 6}
+        kept_indices = {s.index for s in filter_result.results if s.score >= 8}
+        if not kept_indices:
+            logger.info("無 >= 8 分來源，fallback 至 >= 6 分門檻")
+            kept_indices = {s.index for s in filter_result.results if s.score >= 6}
         filtered_results = [r for i, r in enumerate(all_results) if (i + 1) in kept_indices]
         logger.info(f"Source filtering 保留 {len(filtered_results)}/{len(all_results)} 個來源")
     except Exception as e:
