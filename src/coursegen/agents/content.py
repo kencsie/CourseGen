@@ -36,6 +36,7 @@ from coursegen.prompts.content import (
 )
 from langgraph.runtime import Runtime
 from langchain.chat_models import init_chat_model
+from coursegen.utils.content_cleaner import clean_search_results
 from tavily import TavilyClient
 import json
 import logging
@@ -377,6 +378,18 @@ def content_knowledge_search_node(
         logger.warning(f"Source filtering 重試 3 次仍失敗，使用空結果: {e}")
         filtered_results = []
 
+    # ── 5.5. Cheap LLM raw_content cleaning ──
+    if filtered_results and runtime.context.cheap_model:
+        filtered_results = clean_search_results(
+            results=filtered_results,
+            topic=state["roadmap"]["topic"],
+            node_label=node_label,
+            model_name=runtime.context.cheap_model,
+            api_key=runtime.context.openrouter_api_key,
+            base_url=runtime.context.base_url,
+            config=_make_llm_config(state, "content_cleaning"),
+        )
+
     # ── 6. 組裝 synthesized_knowledge + sources ──
     synthesized_knowledge = "\n\n".join(
         f"=== Tavily 整合摘要 {i + 1} ===\n{a}"
@@ -426,10 +439,12 @@ def content_generation_node(
 
     logger.info(f"生成節點 [{current_index}] {current_node_id} ({node_type})")
 
-    # 添加依賴節點的資訊
+    # 添加依賴節點的資訊（排除 sources 和 reasoning，避免 token 爆炸）
     parent_summaries = ""
     for node in current_node["dependencies"]:
         node_info = state["content_map"].get(node, "")
+        if isinstance(node_info, dict):
+            node_info = {k: v for k, v in node_info.items() if k not in ("sources", "reasoning")}
         parent_summaries += json.dumps(node_info, ensure_ascii=False, indent=2) + "\n\n"
 
     # 提取查找後的總結外部知識

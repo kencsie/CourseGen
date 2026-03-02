@@ -11,6 +11,7 @@ from coursegen.prompts.knowledge_synthesis import (
     ROADMAP_SOURCE_FILTER_PROMPT,
 )
 from coursegen.prompts.roadmap import ROADMAP_SEARCH_QUERY_PROMPT
+from coursegen.utils.content_cleaner import clean_search_results
 from langgraph.runtime import Runtime
 from langchain.chat_models import init_chat_model
 from tavily import TavilyClient
@@ -172,6 +173,18 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
     except Exception as e:
         logger.warning(f"Source filtering 重試 3 次仍失敗，使用空結果: {e}")
         filtered_results = []
+
+    # ── 5.5. Cheap LLM raw_content cleaning ──
+    if filtered_results and runtime.context.cheap_model:
+        filtered_results = clean_search_results(
+            results=filtered_results,
+            topic=state.get("question"),
+            node_label=state.get("question"),
+            model_name=runtime.context.cheap_model,
+            api_key=runtime.context.openrouter_api_key,
+            base_url=runtime.context.base_url,
+            config={"run_name": "roadmap_content_cleaning"},
+        )
 
     if not filtered_results:
         logger.warning("過濾後無結果，跳過 knowledge synthesis")
