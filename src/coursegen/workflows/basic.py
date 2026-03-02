@@ -144,9 +144,12 @@ if __name__ == "__main__":
             "tavily_api_key": os.getenv("TAVILY_KEY"),
             "content_model": "google/gemini-3-flash-preview",
             "content_max_retries": 3,
+            "cheap_model": "google/gemini-3-flash-preview",
         },
         config={"callbacks": [langfuse_handler]},
     )
+
+    langfuse_handler.flush()
 
     to_mermaid(result["roadmap"])
 

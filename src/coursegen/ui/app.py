@@ -87,15 +87,16 @@ def generate_roadmap(question: str, preferences: UserPreferences):
 
         try:
             context = {
-                "model_name": os.getenv("MODEL_NAME", "openai/gpt-5.2"),
+                "model_name": os.getenv("MODEL_NAME", "google/gemini-3-flash-preview"),
                 "base_url": os.getenv("BASE_URL"),
                 "openrouter_api_key": os.getenv("OPENROUTER_API_KEY"),
-                "roadmap_critic_model": os.getenv("ROADMAP_CRITIC_MODEL", "openai/gpt-5.2"),
+                "roadmap_critic_model": os.getenv("ROADMAP_CRITIC_MODEL", "google/gemini-3-flash-preview"),
                 "max_iterations": int(os.getenv("MAX_ITERATIONS", "3")),
                 "tavily_api_key": os.getenv("TAVILY_KEY"),
-                "content_model": os.getenv("CONTENT_MODEL", "openai/gpt-5.2"),
-                "content_critic_model": os.getenv("CONTENT_CRITIC_MODEL", "openai/gpt-5.2"),
+                "content_model": os.getenv("CONTENT_MODEL", "google/gemini-3-flash-preview"),
+                "content_critic_model": os.getenv("CONTENT_CRITIC_MODEL", "google/gemini-3-flash-preview"),
                 "content_max_retries": int(os.getenv("CONTENT_MAX_RETRIES", "3")),
+                "cheap_model": os.getenv("CHEAP_MODEL", "google/gemini-3-flash-preview"),
             }
 
             st.write(f"📝 主題: {question}")
@@ -184,7 +185,8 @@ def generate_roadmap(question: str, preferences: UserPreferences):
                     step_text.write(f"**階段 2/2 — 內容生成**{node_info} — {pct_display}%\n\n{label}")
                     progress_bar.progress(min(pct, 1.0))
 
-            # Stream finished
+            # Stream finished — flush Langfuse traces
+            langfuse_handler.flush()
             progress_bar.progress(1.0)
 
             end_time = time.time()
