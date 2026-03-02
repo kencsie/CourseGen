@@ -72,11 +72,12 @@ class ContextSchema:
     base_url: str
     openrouter_api_key: str
     tavily_api_key: Optional[str] = None
-    roadmap_critic_model: str = "openai/gpt-5.2"
+    roadmap_critic_model: str = "google/gemini-3-flash-preview"
     max_iterations: int = 3
-    content_model: str = "openai/gpt-5.2"
-    content_critic_model: str = "openai/gpt-5.2"
+    content_model: str = "google/gemini-3-flash-preview"
+    content_critic_model: str = "google/gemini-3-flash-preview"
     content_max_retries: int = 3
+    cheap_model: str = "google/gemini-3-flash-preview"
 
 
 class Language(str, Enum):
@@ -274,6 +275,15 @@ class SourceScore(BaseModel):
 
 class SourceFilterResponse(BaseModel):
     results: list[SourceScore]
+
+
+class SectionRemovalResponse(BaseModel):
+    reason: str = Field(
+        description="Brief reasoning for which sections to remove and why."
+    )
+    remove_indices: list[int] = Field(
+        description="1-based paragraph numbers to REMOVE. Empty list = keep all."
+    )
 
 
 class ContentValidationResult(BaseModel):
