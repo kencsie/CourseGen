@@ -286,6 +286,15 @@ class SectionRemovalResponse(BaseModel):
     )
 
 
+class SourceSelectionResponse(BaseModel):
+    reason: str = Field(
+        description="Brief reasoning for source selection."
+    )
+    keep_indices: list[int] = Field(
+        description="1-based source numbers to KEEP, ordered by importance."
+    )
+
+
 class ContentValidationResult(BaseModel):
     """Content critic 的審核結果"""
 

@@ -77,6 +77,44 @@ Node: {node_label}
 """
 
 # ============================================================
+# Source Selection — Cheap LLM 從 N 筆來源挑 top-k
+# ============================================================
+SOURCE_SELECTION_PROMPT = """You are a source curator. Select the {max_sources} most valuable sources for writing educational content.
+
+## Context
+Topic: {topic}
+Node: {node_label}
+
+## Available Sources
+{numbered_sources}
+
+## Instructions
+- Pick the {max_sources} sources that provide the MOST USEFUL and COMPLEMENTARY information for this specific node.
+- Prefer official/authoritative sources.
+- Prefer sources that cover different aspects (breadth) over redundant sources.
+- Return their numbers in order of importance (most important first).
+"""
+
+# ============================================================
+# Aggressive Cleaning — 對超大來源只保留 top-N sections
+# ============================================================
+AGGRESSIVE_CLEANING_PROMPT = """You are a content relevance filter. This source is very large, so select ONLY the most relevant sections to KEEP.
+
+## Context
+Topic: {topic}
+Node: {node_label}
+
+## Sections (heading + preview)
+{numbered_sections}
+
+## Instructions
+- Select ONLY the sections that are DIRECTLY useful for writing educational content about this specific node.
+- Discard general changelog entries, version history details, and tangential sections.
+- You may keep at most {max_sections} sections, but select fewer if the rest are not useful. Quality over quantity.
+- Return their numbers in order of relevance (most relevant first).
+"""
+
+# ============================================================
 # 共用前綴模板 — 所有類型共用的上下文資訊
 # ============================================================
 CONTENT_SHARED_PREFIX = """
