@@ -36,7 +36,7 @@ from coursegen.prompts.content import (
 )
 from langgraph.runtime import Runtime
 from langchain.chat_models import init_chat_model
-from coursegen.utils.content_cleaner import clean_search_results
+from coursegen.utils.content_cleaner import clean_search_results, select_top_sources
 from tavily import TavilyClient
 import json
 import logging
@@ -377,6 +377,19 @@ def content_knowledge_search_node(
     except Exception as e:
         logger.warning(f"Source filtering 重試 3 次仍失敗，使用空結果: {e}")
         filtered_results = []
+
+    # ── 5.3. Top-K source selection ──
+    if len(filtered_results) > 4 and runtime.context.cheap_model:
+        filtered_results = select_top_sources(
+            results=filtered_results,
+            topic=state["roadmap"]["topic"],
+            node_label=node_label,
+            model_name=runtime.context.cheap_model,
+            api_key=runtime.context.openrouter_api_key,
+            base_url=runtime.context.base_url,
+            max_sources=4,
+            config=_make_llm_config(state, "source_selection"),
+        )
 
     # ── 5.5. Cheap LLM raw_content cleaning ──
     if filtered_results and runtime.context.cheap_model:
