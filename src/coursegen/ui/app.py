@@ -192,6 +192,15 @@ def generate_roadmap(question: str, preferences: UserPreferences):
             end_time = time.time()
             elapsed = end_time - start_time
 
+            # Debug: check what's in result
+            content_map = result.get("content_map", {})
+            logger = logging.getLogger(__name__)
+            logger.info(
+                f"Stream finished. result keys: {list(result.keys())}, "
+                f"content_map keys: {list(content_map.keys())}, "
+                f"content_map non-empty: {sum(1 for v in content_map.values() if v)}"
+            )
+
             step_text.write(f"✅ 生成完成！耗時 {elapsed:.1f} 秒")
 
             critics = result.get("critics", [])
@@ -249,6 +258,12 @@ def render_sidebar():
                 # Generate roadmap
                 result = generate_roadmap(question, preferences)
 
+                logger = logging.getLogger(__name__)
+                logger.info(
+                    f"result keys: {list(result.keys())}, "
+                    f"content_map keys: {list(result.get('content_map', {}).keys())}"
+                )
+
                 # Save full workflow results to session state
                 st.session_state.roadmap = result["roadmap"]
                 st.session_state.content_map = result.get("content_map", {})
@@ -275,14 +290,18 @@ def render_sidebar():
                 )
                 st.session_state.current_record_id = record_id
 
-                st.sidebar.success("✅ Roadmap 已生成並儲存")
-
             except Exception as e:
-                st.sidebar.error(f"❌ 錯誤: {str(e)}")
+                st.session_state.error_message = f"❌ 錯誤: {str(e)}"
+                logging.getLogger(__name__).exception("Generation failed after streaming")
 
             finally:
                 st.session_state.is_generating = False
                 st.rerun()
+
+    # Display persistent error message (survives st.rerun)
+    if st.session_state.error_message:
+        st.sidebar.error(st.session_state.error_message)
+        st.session_state.error_message = None  # clear after showing once
 
     if st.session_state.current_record_id:
         st.sidebar.caption("✅ 已自動儲存至資料庫")
