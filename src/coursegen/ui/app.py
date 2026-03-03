@@ -91,11 +91,11 @@ def generate_roadmap(question: str, preferences: UserPreferences):
                 "base_url": os.getenv("BASE_URL"),
                 "openrouter_api_key": os.getenv("OPENROUTER_API_KEY"),
                 "roadmap_critic_model": os.getenv("ROADMAP_CRITIC_MODEL", "google/gemini-3-flash-preview"),
-                "max_iterations": int(os.getenv("MAX_ITERATIONS", "3")),
+                "max_iterations": int(os.getenv("MAX_ITERATIONS", "5")),
                 "tavily_api_key": os.getenv("TAVILY_KEY"),
                 "content_model": os.getenv("CONTENT_MODEL", "google/gemini-3-flash-preview"),
                 "content_critic_model": os.getenv("CONTENT_CRITIC_MODEL", "google/gemini-3-flash-preview"),
-                "content_max_retries": int(os.getenv("CONTENT_MAX_RETRIES", "3")),
+                "content_max_retries": int(os.getenv("CONTENT_MAX_RETRIES", "5")),
                 "cheap_model": os.getenv("CHEAP_MODEL", "google/gemini-3-flash-preview"),
             }
 
@@ -103,7 +103,7 @@ def generate_roadmap(question: str, preferences: UserPreferences):
             st.write(f"🌐 語言: {preferences.language.value}")
 
             # --- Streaming with progress tracking ---
-            max_iterations = int(os.getenv("MAX_ITERATIONS", "3"))
+            max_iterations = int(os.getenv("MAX_ITERATIONS", "5"))
             # Roadmap phase: worst-case steps = (search + generation + critic) * max_iterations
             roadmap_steps_per_iter = 3  # knowledge_search + roadmap + roadmap_critic
             est_roadmap_steps = roadmap_steps_per_iter * max_iterations

@@ -73,10 +73,10 @@ class ContextSchema:
     openrouter_api_key: str
     tavily_api_key: Optional[str] = None
     roadmap_critic_model: str = "google/gemini-3-flash-preview"
-    max_iterations: int = 3
+    max_iterations: int = 5
     content_model: str = "google/gemini-3-flash-preview"
     content_critic_model: str = "google/gemini-3-flash-preview"
-    content_max_retries: int = 3
+    content_max_retries: int = 5
     cheap_model: str = "google/gemini-3-flash-preview"
 
 
