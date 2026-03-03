@@ -27,6 +27,8 @@ class GenerationRecord(Base):
     total_tokens = Column(Integer, nullable=True)
     total_cost_usd = Column(Float, nullable=True)
     roadmap_json = Column(JSON, nullable=False)
+    raw_content_chars = Column(Integer, nullable=True)
+    cleaned_content_chars = Column(Integer, nullable=True)
     content_map_json = Column(JSON, nullable=True)
     content_order_json = Column(JSON, nullable=True)
     content_failed_nodes_json = Column(JSON, nullable=True)

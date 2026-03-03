@@ -43,6 +43,19 @@ def compute_pipeline_metrics(generations: list[dict]) -> PipelineMetrics:
     avg_tokens = _avg([g.get("total_tokens") or 0 for g in generations])
     avg_cost = _avg([g.get("total_cost_usd") or 0 for g in generations])
 
+    # Cleaning stats
+    gens_with_cleaning = [
+        g for g in generations
+        if g.get("raw_content_chars") and g["raw_content_chars"] > 0
+    ]
+    avg_raw = _avg([g["raw_content_chars"] for g in gens_with_cleaning])
+    avg_cleaned = _avg([g["cleaned_content_chars"] or 0 for g in gens_with_cleaning])
+    reduction_pcts = [
+        (1 - (g.get("cleaned_content_chars") or 0) / g["raw_content_chars"]) * 100
+        for g in gens_with_cleaning
+    ]
+    avg_reduction = _avg(reduction_pcts)
+
     # Node type distribution
     type_counter: Counter[str] = Counter()
     for g in generations:
@@ -58,6 +71,9 @@ def compute_pipeline_metrics(generations: list[dict]) -> PipelineMetrics:
         avg_generation_time_sec=avg_time,
         avg_total_tokens=avg_tokens,
         avg_cost_usd=avg_cost,
+        avg_raw_content_chars=avg_raw,
+        avg_cleaned_content_chars=avg_cleaned,
+        avg_cleaning_reduction_pct=avg_reduction,
         node_type_distribution=dict(type_counter),
     )
 

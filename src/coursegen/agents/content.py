@@ -392,8 +392,9 @@ def content_knowledge_search_node(
         )
 
     # ── 5.5. Cheap LLM raw_content cleaning ──
+    cleaning_stats: dict = {}
     if filtered_results and runtime.context.cheap_model:
-        filtered_results = clean_search_results(
+        filtered_results, cleaning_stats = clean_search_results(
             results=filtered_results,
             topic=state["roadmap"]["topic"],
             node_label=node_label,
@@ -419,6 +420,10 @@ def content_knowledge_search_node(
         for r in filtered_results
     ]
 
+    # Accumulate cleaning char stats
+    prev_raw = state.get("cleaning_raw_chars", 0) or 0
+    prev_cleaned = state.get("cleaning_cleaned_chars", 0) or 0
+
     return {
         "content_node_knowledge": {
             "synthesized_knowledge": synthesized_knowledge,
@@ -426,6 +431,8 @@ def content_knowledge_search_node(
         },
         "content_search_queries_history": previous_queries + [queries],
         "content_search_urls_seen": list(urls_seen | new_urls),
+        "cleaning_raw_chars": prev_raw + cleaning_stats.get("raw_chars", 0),
+        "cleaning_cleaned_chars": prev_cleaned + cleaning_stats.get("cleaned_chars", 0),
     }
 
 

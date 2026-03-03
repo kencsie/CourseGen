@@ -22,6 +22,8 @@ def save_generation(
     iteration_count: int | None = None,
     total_tokens: int | None = None,
     total_cost_usd: float | None = None,
+    raw_content_chars: int | None = None,
+    cleaned_content_chars: int | None = None,
 ) -> str:
     """Save a generation record and return its ID."""
     record_id = str(uuid.uuid4())
@@ -34,6 +36,8 @@ def save_generation(
         iteration_count=iteration_count,
         total_tokens=total_tokens,
         total_cost_usd=total_cost_usd,
+        raw_content_chars=raw_content_chars,
+        cleaned_content_chars=cleaned_content_chars,
         roadmap_json=roadmap,
         content_map_json=content_map or {},
         content_order_json=content_order or [],
@@ -82,6 +86,8 @@ def load_generation(record_id: str) -> dict | None:
             "iteration_count": record.iteration_count,
             "total_tokens": record.total_tokens,
             "total_cost_usd": record.total_cost_usd,
+            "raw_content_chars": record.raw_content_chars,
+            "cleaned_content_chars": record.cleaned_content_chars,
             "roadmap": record.roadmap_json,
             "content_map": record.content_map_json or {},
             "content_order": record.content_order_json or [],

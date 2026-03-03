@@ -19,8 +19,37 @@ logger = logging.getLogger(__name__)
 # Match markdown headers: #, ##, ###, ####
 _HEADER_RE = re.compile(r"^(#{1,4})\s+(.+)$", re.MULTILINE)
 
+# Match inline base64 image data URIs
+_BASE64_RE = re.compile(r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+")
 
-def split_into_sections(content: str) -> list[dict]:
+# Match markdown image syntax ![alt](url)
+_MARKDOWN_IMG_RE = re.compile(r"!\[[^\]]*\]\([^)]+\)")
+
+# Match wiki/CMS edit links [edit](url) or [edit source](url)
+_EDIT_LINK_RE = re.compile(r"\[edit(?:\s*source)?\]\([^)]+\)", re.IGNORECASE)
+
+
+def strip_base64_images(content: str) -> str:
+    """Remove inline base64 image data from content."""
+    cleaned = _BASE64_RE.sub("", content)
+    if len(cleaned) < len(content):
+        removed = len(content) - len(cleaned)
+        logger.info(f"strip_base64: removed {removed:,} chars of base64 image data")
+    return cleaned
+
+
+def strip_web_noise(content: str) -> str:
+    """Remove common web-to-markdown noise: images, edit links."""
+    original_len = len(content)
+    content = _MARKDOWN_IMG_RE.sub("", content)
+    content = _EDIT_LINK_RE.sub("", content)
+    removed = original_len - len(content)
+    if removed > 0:
+        logger.info(f"strip_web_noise: removed {removed:,} chars")
+    return content
+
+
+def split_into_sections(content: str, max_section_size: int = 10_000) -> list[dict]:
     """Split content by markdown headers into semantic sections.
 
     Each section = {"heading": "## Title", "body": "...", "level": 2}
@@ -60,7 +89,41 @@ def split_into_sections(content: str) -> list[dict]:
         body = content[body_start:body_end].strip()
         sections.append({"heading": heading, "body": body, "level": level})
 
-    return sections
+    # Split oversized sections into chunks at nearest \n\n
+    final = []
+    for sec in sections:
+        if len(sec["body"]) <= max_section_size:
+            final.append(sec)
+        else:
+            body = sec["body"]
+            chunks = []
+            start = 0
+            while start < len(body):
+                if start + max_section_size >= len(body):
+                    chunks.append(body[start:])
+                    break
+                # Search for \n\n near the boundary
+                cut = body.rfind("\n\n", start, start + max_section_size)
+                if cut <= start:
+                    # No \n\n found, hard cut
+                    cut = start + max_section_size
+                else:
+                    cut += 2  # include the \n\n in current chunk
+                chunks.append(body[start:cut])
+                start = cut
+            for part_num, chunk in enumerate(chunks, 1):
+                final.append(
+                    {
+                        "heading": f"{sec['heading']} (part {part_num})" if sec["heading"] else "",
+                        "body": chunk,
+                        "level": sec["level"],
+                    }
+                )
+            logger.info(
+                f"split_into_sections: split '{sec['heading'][:50]}' "
+                f"({len(body):,} chars) into {len(chunks)} chunks"
+            )
+    return final
 
 
 def select_top_sources(
@@ -144,6 +207,8 @@ def clean_single_source(
     1. First pass: remove completely irrelevant sections.
     2. Second pass (if result > aggressive_threshold): keep only top-N most relevant sections.
     """
+    raw_content = strip_base64_images(raw_content)
+    raw_content = strip_web_noise(raw_content)
     original_len = len(raw_content)
 
     # 1. Split into sections
@@ -314,8 +379,12 @@ def clean_search_results(
     api_key: str,
     base_url: str,
     config: dict | None = None,
-) -> list[SearchResult]:
-    """Clean raw_content for each SearchResult via cheap LLM. Returns new list."""
+) -> tuple[list[SearchResult], dict]:
+    """Clean raw_content for each SearchResult via cheap LLM.
+
+    Returns:
+        (cleaned_results, stats) where stats = {"raw_chars": int, "cleaned_chars": int}
+    """
     cleaned = []
     total_before = 0
     total_after = 0
@@ -353,4 +422,5 @@ def clean_search_results(
             f"({reduction:.0f}% reduction) across {len(results)} sources"
         )
 
-    return cleaned
+    stats = {"raw_chars": total_before, "cleaned_chars": total_after}
+    return cleaned, stats

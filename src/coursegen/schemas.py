@@ -24,6 +24,8 @@ class AppState(TypedDict):
     content_order: list[str]                           # ContentSubgraph 輸出
     content_map: Annotated[dict, dict_merge_reducer]   # ContentSubgraph 輸出
     content_failed_nodes: list[str]                    # ContentSubgraph 輸出
+    cleaning_raw_chars: int                            # content cleaning 前字元數
+    cleaning_cleaned_chars: int                        # content cleaning 後字元數
 
 
 class RoadmapState(TypedDict):
@@ -44,6 +46,8 @@ class RoadmapState(TypedDict):
     knowledge_context: dict
     roadmap_search_queries_history: list[list[str]]
     roadmap_search_urls_seen: list[str]
+    cleaning_raw_chars: int
+    cleaning_cleaned_chars: int
 
 
 class ContentState(TypedDict):
@@ -64,6 +68,8 @@ class ContentState(TypedDict):
     content_node_feedback_history: list[str]
     content_search_queries_history: list[list[str]]
     content_search_urls_seen: list[str]
+    cleaning_raw_chars: int
+    cleaning_cleaned_chars: int
 
 
 @dataclass

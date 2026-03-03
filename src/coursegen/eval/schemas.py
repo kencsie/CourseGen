@@ -18,6 +18,9 @@ class PipelineMetrics(BaseModel):
     avg_generation_time_sec: float
     avg_total_tokens: float
     avg_cost_usd: float
+    avg_raw_content_chars: float = 0.0
+    avg_cleaned_content_chars: float = 0.0
+    avg_cleaning_reduction_pct: float = 0.0
     node_type_distribution: dict[str, int] = Field(description="Count of each node type across all roadmaps")
 
 

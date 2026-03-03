@@ -1,6 +1,7 @@
 """
 CourseGen Streamlit UI - Main Application
 """
+
 import logging
 import streamlit as st
 import os
@@ -90,13 +91,21 @@ def generate_roadmap(question: str, preferences: UserPreferences):
                 "model_name": os.getenv("MODEL_NAME", "google/gemini-3-flash-preview"),
                 "base_url": os.getenv("BASE_URL"),
                 "openrouter_api_key": os.getenv("OPENROUTER_API_KEY"),
-                "roadmap_critic_model": os.getenv("ROADMAP_CRITIC_MODEL", "google/gemini-3-flash-preview"),
+                "roadmap_critic_model": os.getenv(
+                    "ROADMAP_CRITIC_MODEL", "google/gemini-3-flash-preview"
+                ),
                 "max_iterations": int(os.getenv("MAX_ITERATIONS", "5")),
                 "tavily_api_key": os.getenv("TAVILY_KEY"),
-                "content_model": os.getenv("CONTENT_MODEL", "google/gemini-3-flash-preview"),
-                "content_critic_model": os.getenv("CONTENT_CRITIC_MODEL", "google/gemini-3-flash-preview"),
+                "content_model": os.getenv(
+                    "CONTENT_MODEL", "google/gemini-3-flash-preview"
+                ),
+                "content_critic_model": os.getenv(
+                    "CONTENT_CRITIC_MODEL", "google/gemini-3-flash-preview"
+                ),
                 "content_max_retries": int(os.getenv("CONTENT_MAX_RETRIES", "5")),
-                "cheap_model": os.getenv("CHEAP_MODEL", "google/gemini-3-flash-preview"),
+                "cheap_model": os.getenv(
+                    "CHEAP_MODEL", "google/gemini-3-flash-preview"
+                ),
             }
 
             st.write(f"📝 主題: {question}")
@@ -153,27 +162,38 @@ def generate_roadmap(question: str, preferences: UserPreferences):
                     pct = min(0.30, 0.30 * roadmap_steps_done / est_roadmap_steps)
                     iteration = (roadmap_steps_done - 1) // roadmap_steps_per_iter + 1
                     pct_display = int(pct * 100)
-                    step_text.write(f"**階段 1/2 — Roadmap 生成** (迭代 {iteration}) — {pct_display}%\n\n{label}")
+                    step_text.write(
+                        f"**階段 1/2 — Roadmap 生成** (迭代 {iteration}) — {pct_display}%\n\n{label}"
+                    )
                     progress_bar.progress(pct)
 
                 elif phase == "content":
                     content_steps_done += 1
 
                     # After content_planning_node, determine total content nodes
-                    if node_name == "content_planning_node" and total_content_nodes is None:
+                    if (
+                        node_name == "content_planning_node"
+                        and total_content_nodes is None
+                    ):
                         node_output = data.get("content_planning_node", {})
-                        content_order = node_output.get("content_order") or result.get("content_order", [])
+                        content_order = node_output.get("content_order") or result.get(
+                            "content_order", []
+                        )
                         total_content_nodes = len(content_order) if content_order else 1
                         # steps per node: search + generate + critic + advance
                         steps_per_node = 4
-                        total_content_steps = 1 + total_content_nodes * steps_per_node  # +1 for planning
+                        total_content_steps = (
+                            1 + total_content_nodes * steps_per_node
+                        )  # +1 for planning
 
                     if node_name == "content_advance_node":
                         content_node_index += 1
 
                     # Progress: 30% ~ 100% for content phase
                     if total_content_steps and total_content_steps > 0:
-                        pct = 0.30 + 0.70 * min(1.0, content_steps_done / total_content_steps)
+                        pct = 0.30 + 0.70 * min(
+                            1.0, content_steps_done / total_content_steps
+                        )
                     else:
                         pct = 0.30
 
@@ -182,11 +202,11 @@ def generate_roadmap(question: str, preferences: UserPreferences):
                     if total_content_nodes and total_content_nodes > 0:
                         current = min(content_node_index + 1, total_content_nodes)
                         node_info = f" — 節點 {current}/{total_content_nodes}"
-                    step_text.write(f"**階段 2/2 — 內容生成**{node_info} — {pct_display}%\n\n{label}")
+                    step_text.write(
+                        f"**階段 2/2 — 內容生成**{node_info} — {pct_display}%\n\n{label}"
+                    )
                     progress_bar.progress(min(pct, 1.0))
 
-            # Stream finished — flush Langfuse traces
-            langfuse_handler.flush()
             progress_bar.progress(1.0)
 
             end_time = time.time()
@@ -212,6 +232,8 @@ def generate_roadmap(question: str, preferences: UserPreferences):
                 "timestamp": datetime.utcnow(),
                 "total_tokens": cost_summary["total_tokens"],
                 "total_cost_usd": cost_summary["total_cost_usd"],
+                "cleaning_raw_chars": result.get("cleaning_raw_chars"),
+                "cleaning_cleaned_chars": result.get("cleaning_cleaned_chars"),
             }
 
             status_container.update(label="✅ Roadmap 生成成功！", state="complete")
@@ -283,16 +305,32 @@ def render_sidebar():
                     content_map=st.session_state.content_map,
                     content_order=st.session_state.content_order,
                     content_failed_nodes=st.session_state.content_failed_nodes,
-                    generation_time_sec=st.session_state.generation_metadata.get("elapsed_time"),
-                    iteration_count=st.session_state.generation_metadata.get("iterations"),
-                    total_tokens=st.session_state.generation_metadata.get("total_tokens"),
-                    total_cost_usd=st.session_state.generation_metadata.get("total_cost_usd"),
+                    generation_time_sec=st.session_state.generation_metadata.get(
+                        "elapsed_time"
+                    ),
+                    iteration_count=st.session_state.generation_metadata.get(
+                        "iterations"
+                    ),
+                    total_tokens=st.session_state.generation_metadata.get(
+                        "total_tokens"
+                    ),
+                    total_cost_usd=st.session_state.generation_metadata.get(
+                        "total_cost_usd"
+                    ),
+                    raw_content_chars=st.session_state.generation_metadata.get(
+                        "cleaning_raw_chars"
+                    ),
+                    cleaned_content_chars=st.session_state.generation_metadata.get(
+                        "cleaning_cleaned_chars"
+                    ),
                 )
                 st.session_state.current_record_id = record_id
 
             except Exception as e:
                 st.session_state.error_message = f"❌ 錯誤: {str(e)}"
-                logging.getLogger(__name__).exception("Generation failed after streaming")
+                logging.getLogger(__name__).exception(
+                    "Generation failed after streaming"
+                )
 
             finally:
                 st.session_state.is_generating = False
@@ -354,16 +392,17 @@ def render_main_content():
 
         # DAG full-width rendering
         selected_node = render_roadmap_graph(
-            st.session_state.roadmap,
-            st.session_state.node_progress
+            st.session_state.roadmap, st.session_state.node_progress
         )
 
         # Detect outside-click dismissal:
         # dialog was open last render, selected_node still set,
         # and no internal dialog button triggered this rerun.
-        if (was_dialog_open
-                and st.session_state.selected_node
-                and not st.session_state._dialog_internal_action):
+        if (
+            was_dialog_open
+            and st.session_state.selected_node
+            and not st.session_state._dialog_internal_action
+        ):
             st.session_state._dialog_dismissed = st.session_state.selected_node
             st.session_state.selected_node = None
         st.session_state._dialog_internal_action = False  # reset for next rerun
@@ -373,7 +412,9 @@ def render_main_content():
         if selected_node and selected_node != st.session_state.selected_node:
             # Skip if this is the node that was just dismissed (agraph retains selection)
             if selected_node != dismissed:
-                st.session_state._dialog_dismissed = None  # clear — a new node was clicked
+                st.session_state._dialog_dismissed = (
+                    None  # clear — a new node was clicked
+                )
                 st.session_state.selected_node = selected_node
                 st.rerun()
 

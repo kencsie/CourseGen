@@ -188,8 +188,9 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
         )
 
     # ── 5.5. Cheap LLM raw_content cleaning ──
+    cleaning_stats: dict = {}
     if filtered_results and runtime.context.cheap_model:
-        filtered_results = clean_search_results(
+        filtered_results, cleaning_stats = clean_search_results(
             results=filtered_results,
             topic=state.get("question"),
             node_label=state.get("question"),
@@ -242,6 +243,9 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
     logger.info(f"知識統整完成，長度: {len(synthesized)} 字")
 
     # ── 7. 回傳結果 + 搜尋歷史更新 ──
+    prev_raw = state.get("cleaning_raw_chars", 0) or 0
+    prev_cleaned = state.get("cleaning_cleaned_chars", 0) or 0
+
     return {
         "topic_keyword": topic_keyword,
         "knowledge_context": KnowledgeContext(
@@ -251,6 +255,8 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
         ).model_dump(),
         "roadmap_search_queries_history": previous_queries + [queries],
         "roadmap_search_urls_seen": list(urls_seen | new_urls),
+        "cleaning_raw_chars": prev_raw + cleaning_stats.get("raw_chars", 0),
+        "cleaning_cleaned_chars": prev_cleaned + cleaning_stats.get("cleaned_chars", 0),
     }
 
 
