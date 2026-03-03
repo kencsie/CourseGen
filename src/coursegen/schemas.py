@@ -78,10 +78,10 @@ class ContextSchema:
     base_url: str
     openrouter_api_key: str
     tavily_api_key: Optional[str] = None
-    roadmap_critic_model: str = "google/gemini-3-flash-preview"
+    roadmap_critic_model: str = "openai/gpt-5.2"
     max_iterations: int = 5
-    content_model: str = "google/gemini-3-flash-preview"
-    content_critic_model: str = "google/gemini-3-flash-preview"
+    content_model: str = "openai/gpt-5.2"
+    content_critic_model: str = "openai/gpt-5.2"
     content_max_retries: int = 5
     cheap_model: str = "google/gemini-3-flash-preview"
 
@@ -218,14 +218,22 @@ class PitfallContent(BaseModel):
     )
 
 
+class ComparisonRow(BaseModel):
+    """比較表中的一個維度。"""
+
+    dimension: str = Field(description="比較面向（例如：用途、效能、學習曲線）")
+    a: str = Field(description="對象 A 在此面向的表現")
+    b: str = Field(description="對象 B 在此面向的表現")
+
+
 class ComparisonContent(BaseModel):
     """比較節點的教學內容：釐清容易混淆的概念或工具差異。"""
 
     reasoning: str = Field(description=_REASONING_DESC)
     subject_a: str = Field(description="比較對象 A 的名稱")
     subject_b: str = Field(description="比較對象 B 的名稱")
-    comparison_table: List[dict] = Field(
-        description="3-6 個比較維度，每個維度是一個 dict，格式為 {'dimension': '比較面向', 'a': 'A 的表現', 'b': 'B 的表現'}。涵蓋：用途、效能、學習曲線、適用場景等。"
+    comparison_table: List[ComparisonRow] = Field(
+        description="3-6 個比較維度，涵蓋：用途、效能、學習曲線、適用場景等。"
     )
     when_to_use: str = Field(
         description="總結性建議（2-3 句話）：什麼情境用 A、什麼情境用 B、有沒有可以混用的情況。"

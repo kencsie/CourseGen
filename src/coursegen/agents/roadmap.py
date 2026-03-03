@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 
 def roadmap_node(state: RoadmapState, runtime: Runtime[ContextSchema]):
     iteration = state.get("iteration_count", 0) + 1
-    logger.info(f"=== Roadmap 生成（第 {iteration} 次）| 模型: {runtime.context.model_name} ===")
+    logger.info(
+        f"=== Roadmap 生成（第 {iteration} 次）| 模型: {runtime.context.model_name} ==="
+    )
 
     roadmap_feedback = state.get("roadmap_feedback", "")
     if roadmap_feedback:
@@ -22,6 +24,7 @@ def roadmap_node(state: RoadmapState, runtime: Runtime[ContextSchema]):
         api_key=runtime.context.openrouter_api_key,
         base_url=runtime.context.base_url,
         temperature=0.1,  # 使用保守的溫度，建立roadmap
+        max_tokens=4096,
     )
     model_structured = model.with_structured_output(Roadmap).with_retry(
         stop_after_attempt=3,
