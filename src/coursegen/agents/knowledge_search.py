@@ -15,6 +15,7 @@ from coursegen.utils.content_cleaner import clean_search_results, select_top_sou
 from langgraph.runtime import Runtime
 from langchain.chat_models import init_chat_model
 from tavily import TavilyClient
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
 logger = logging.getLogger(__name__)
@@ -67,7 +68,7 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
 
     # ── 3. LLM 生成 3 queries ──
     query_model = init_chat_model(
-        model=runtime.context.model_name,
+        model=runtime.context.cheap_model,
         model_provider="openai",
         api_key=runtime.context.openrouter_api_key,
         base_url=runtime.context.base_url,
@@ -100,9 +101,9 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
     new_urls: set[str] = set()
     tavily_answers: list[str] = []
 
-    for q in queries:
+    def _search_single(q: str) -> dict | None:
         try:
-            response = tavily_client.search(
+            return tavily_client.search(
                 query=q,
                 search_depth="advanced",
                 include_answer="advanced",
@@ -111,27 +112,36 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
             )
         except Exception as e:
             logger.warning(f"Tavily search failed for query '{q}': {e}")
-            continue
+            return None
 
-        answer = response.get("answer", "")
-        if answer:
-            tavily_answers.append(answer)
-            logger.info(f"Tavily answer for '{q}': {len(answer)} 字")
-
-        for result in response.get("results", []):
-            url = result["url"]
-            if url in urls_seen or url in new_urls:
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {executor.submit(_search_single, q): q for q in queries}
+        # Iterate in submission order to keep results deterministic
+        for future in futures:
+            response = future.result()
+            if response is None:
                 continue
-            new_urls.add(url)
-            all_results.append(
-                SearchResult(
-                    title=result["title"],
-                    url=url,
-                    content=result["content"],
-                    score=result["score"],
-                    raw_content=result.get("raw_content") or None,
+
+            answer = response.get("answer", "")
+            if answer:
+                tavily_answers.append(answer)
+                q = futures[future]
+                logger.info(f"Tavily answer for '{q}': {len(answer)} 字")
+
+            for result in response.get("results", []):
+                url = result["url"]
+                if url in urls_seen or url in new_urls:
+                    continue
+                new_urls.add(url)
+                all_results.append(
+                    SearchResult(
+                        title=result["title"],
+                        url=url,
+                        content=result["content"],
+                        score=result["score"],
+                        raw_content=result.get("raw_content") or None,
+                    )
                 )
-            )
 
     logger.info(f"Tavily 搜尋完成，取得 {len(all_results)} 筆不重複結果")
 
@@ -149,7 +159,7 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
     )
 
     filter_model = init_chat_model(
-        model=runtime.context.model_name,
+        model=runtime.context.cheap_model,
         model_provider="openai",
         api_key=runtime.context.openrouter_api_key,
         base_url=runtime.context.base_url,
