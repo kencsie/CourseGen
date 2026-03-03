@@ -52,8 +52,8 @@ def strip_web_noise(content: str) -> str:
 def split_into_sections(content: str, max_section_size: int = 10_000) -> list[dict]:
     """Split content by markdown headers into semantic sections.
 
-    Each section = {"heading": "## Title", "body": "...", "level": 2}
-    Content before the first header becomes a preamble section (level=0).
+    Each section = {"heading": "## Title", "body": "..."}
+    Content before the first header becomes a preamble section (heading="").
 
     Fallback: if no headers found, split by \\n\\n and merge short paragraphs.
     """
@@ -68,10 +68,10 @@ def split_into_sections(content: str, max_section_size: int = 10_000) -> list[di
             buf.append(p)
             merged = "\n\n".join(buf)
             if len(merged) >= 80:
-                sections.append({"heading": "", "body": merged, "level": 0})
+                sections.append({"heading": "", "body": merged})
                 buf = []
         if buf:
-            sections.append({"heading": "", "body": "\n\n".join(buf), "level": 0})
+            sections.append({"heading": "", "body": "\n\n".join(buf)})
         return sections
 
     sections = []
@@ -79,15 +79,14 @@ def split_into_sections(content: str, max_section_size: int = 10_000) -> list[di
     # Preamble: content before the first header
     preamble = content[: matches[0].start()].strip()
     if preamble:
-        sections.append({"heading": "", "body": preamble, "level": 0})
+        sections.append({"heading": "", "body": preamble})
 
     for i, m in enumerate(matches):
-        level = len(m.group(1))
         heading = m.group(0).strip()
         body_start = m.end()
         body_end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
         body = content[body_start:body_end].strip()
-        sections.append({"heading": heading, "body": body, "level": level})
+        sections.append({"heading": heading, "body": body})
 
     # Split oversized sections into chunks at nearest \n\n
     final = []
@@ -116,7 +115,6 @@ def split_into_sections(content: str, max_section_size: int = 10_000) -> list[di
                     {
                         "heading": f"{sec['heading']} (part {part_num})" if sec["heading"] else "",
                         "body": chunk,
-                        "level": sec["level"],
                     }
                 )
             logger.info(
