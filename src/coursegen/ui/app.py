@@ -2,7 +2,9 @@
 CourseGen Streamlit UI - Main Application
 """
 
+import html as html_module
 import logging
+import re
 import streamlit as st
 import os
 import time
@@ -37,6 +39,7 @@ from coursegen.db.crud import save_generation
 from coursegen.ui.utils.session_state import init_session_state, reset_roadmap_state
 from coursegen.ui.components.history_sidebar import render_history_sidebar
 from coursegen.ui.utils.cost_tracker import CostTracker
+from coursegen.ui.utils.log_bridge import install as install_log_bridge, uninstall as uninstall_log_bridge
 
 # Langfuse observability
 from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
@@ -44,19 +47,36 @@ from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
 # Load environment variables
 load_dotenv()
 
-# Node name → (中文標籤, phase)
-NODE_LABELS = {
-    # Phase 1: Roadmap
-    "knowledge_search_node": ("🔍 搜尋相關知識...", "roadmap"),
-    "roadmap_node": ("🗺️ 生成學習路徑...", "roadmap"),
-    "roadmap_critic_node": ("🤖 審核學習路徑...", "roadmap"),
-    # Phase 2: Content
-    "content_planning_node": ("📋 規劃內容順序...", "content"),
-    "content_knowledge_search_node": ("🔎 搜尋節點知識...", "content"),
-    "content_generation_node": ("✍️ 生成教學內容...", "content"),
-    "content_critic_node": ("✅ 審核內容品質...", "content"),
-    "content_advance_node": ("➡️ 前進至下一節點...", "content"),
-}
+# Log anchors: regex patterns matched against live log messages to infer the
+# current sub-position inside a node. Tuple shape:
+#   (pattern, sub_pct, label_or_None, kind)
+# kind values:
+#   True          — content node entry (search/generate/critic), group(1) = node idx
+#   "advance"     — content advance (N/M); group(1) = completed count (1-indexed)
+#   False         — rewind anchor (路由 search/generation); sub is set directly
+#   "pass"        — roadmap iteration passed
+#   "retry_search" / "retry_generation" — roadmap iteration failed, bump iter
+#   None          — generic anchor (max-ratchet sub within current unit)
+CONTENT_ANCHORS = [
+    (re.compile(r"搜尋節點 \[(\d+)\]"), 0.0, "🔎 搜尋節點知識...", True),
+    (re.compile(r"Source filtering 保留"), 0.2, "🧹 整合與過濾搜尋結果...", None),
+    (re.compile(r"生成節點 \[(\d+)\]"), 0.4, "✍️ 生成教學內容...", True),
+    (re.compile(r"審核節點 \[(\d+)\]"), 0.7, "✅ 審核內容品質...", True),
+    (re.compile(r"推進: .+ 完成 \((\d+)/\d+\)"), 1.0, "➡️ 前進至下一節點...", "advance"),
+    (re.compile(r"路由: search"), 0.0, "🔎 搜尋中（重試）...", False),
+    (re.compile(r"路由: generation"), 0.4, "✍️ 生成中（重試）...", False),
+]
+
+ROADMAP_ANCHORS = [
+    (re.compile(r"知識搜尋開始"), 0.0, "🔍 搜尋相關知識...", None),
+    (re.compile(r"Source filtering 保留"), 0.2, "🧹 整合與過濾搜尋結果...", None),
+    (re.compile(r"LLM 統整知識中"), 0.3, "🧠 統整知識...", None),
+    (re.compile(r"=== Roadmap 生成"), 0.4, "🗺️ 生成學習路徑...", None),
+    (re.compile(r"節點清單"), 0.7, "🤖 審核學習路徑...", None),
+    (re.compile(r"迭代 \d+/\d+ \| 通過"), 1.0, None, "pass"),
+    (re.compile(r"迭代 \d+/\d+ \| 不通過 \| retry_target: search"), 0.0, "🔄 重新搜尋...", "retry_search"),
+    (re.compile(r"迭代 \d+/\d+ \| 不通過 \| retry_target: generation"), 0.4, "🔄 重新生成路徑...", "retry_generation"),
+]
 
 # Page configuration
 st.set_page_config(
@@ -84,6 +104,8 @@ def generate_roadmap(question: str, preferences: UserPreferences):
         progress_bar = st.progress(0)
         step_text = st.empty()
         step_text.write("⏳ 初始化 AI 代理...")
+        log_slot = st.empty()
+        recent_log_lines: list[str] = []
         start_time = time.time()
 
         try:
@@ -111,101 +133,172 @@ def generate_roadmap(question: str, preferences: UserPreferences):
             st.write(f"📝 主題: {question}")
             st.write(f"🌐 語言: {preferences.language.value}")
 
-            # --- Streaming with progress tracking ---
-            max_iterations = int(os.getenv("MAX_ITERATIONS", "5"))
-            # Roadmap phase: worst-case steps = (search + generation + critic) * max_iterations
-            roadmap_steps_per_iter = 3  # knowledge_search + roadmap + roadmap_critic
-            est_roadmap_steps = roadmap_steps_per_iter * max_iterations
-
-            roadmap_steps_done = 0
-            content_steps_done = 0
-            total_content_steps = None  # determined after content_planning_node
-            content_node_index = 0  # current content node (0-based)
+            # --- Streaming with anchor-based progress tracking ---
+            content_node_index = 0
             total_content_nodes = None
+            content_phase_started = False
+            current_node_sub = 0.0     # content: sub-position within current node
+            roadmap_iter_index = 0     # roadmap iteration count (0-indexed)
+            roadmap_sub = 0.0          # roadmap: sub-position within current iteration
+            current_pct = 0.0
+            current_label = "⏳ 初始化 AI 代理..."
 
-            # Track the latest full state from "values" stream
+            # Track the latest full state from "values" stream (root namespace only)
             result = {}
 
-            langfuse_handler = LangfuseCallbackHandler()
-            cost_tracker = CostTracker()
+            def _recompute_pct() -> float:
+                if not content_phase_started:
+                    prev_cap = 0.28 * (1 - 0.5 ** roadmap_iter_index)
+                    curr_cap = 0.28 * (1 - 0.5 ** (roadmap_iter_index + 1))
+                    return prev_cap + (curr_cap - prev_cap) * roadmap_sub
+                if total_content_nodes and total_content_nodes > 0:
+                    frac = (content_node_index + current_node_sub) / total_content_nodes
+                    return 0.30 + 0.70 * min(frac, 1.0)
+                return max(current_pct, 0.30)
 
-            for chunk in graph.stream(
-                {
-                    "question": question,
-                    "user_preferences": preferences.to_prompt_context(),
-                },
-                context=context,
-                stream_mode=["updates", "values"],
-                config={"callbacks": [langfuse_handler, cost_tracker]},
-            ):
-                stream_type, data = chunk
-
-                if stream_type == "values":
-                    # LangGraph uses reducers to correctly accumulate full state
-                    result = data
-                    continue
-
-                if stream_type != "updates":
-                    continue
-
-                node_name = list(data.keys())[0]
-
-                label_info = NODE_LABELS.get(node_name)
-                if not label_info:
-                    continue
-
-                label, phase = label_info
-
-                if phase == "roadmap":
-                    roadmap_steps_done += 1
-                    # Progress: 0% ~ 30% for roadmap phase
-                    pct = min(0.30, 0.30 * roadmap_steps_done / est_roadmap_steps)
-                    iteration = (roadmap_steps_done - 1) // roadmap_steps_per_iter + 1
-                    pct_display = int(pct * 100)
-                    step_text.write(
-                        f"**階段 1/2 — Roadmap 生成** (迭代 {iteration}) — {pct_display}%\n\n{label}"
-                    )
-                    progress_bar.progress(pct)
-
-                elif phase == "content":
-                    content_steps_done += 1
-
-                    # After content_planning_node, determine total content nodes
-                    if (
-                        node_name == "content_planning_node"
-                        and total_content_nodes is None
-                    ):
-                        node_output = data.get("content_planning_node", {})
-                        content_order = node_output.get("content_order") or result.get(
-                            "content_order", []
-                        )
-                        total_content_nodes = len(content_order) if content_order else 1
-                        # steps per node: search + generate + critic + advance
-                        steps_per_node = 4
-                        total_content_steps = (
-                            1 + total_content_nodes * steps_per_node
-                        )  # +1 for planning
-
-                    if node_name == "content_advance_node":
-                        content_node_index += 1
-
-                    # Progress: 30% ~ 100% for content phase
-                    if total_content_steps and total_content_steps > 0:
-                        pct = 0.30 + 0.70 * min(
-                            1.0, content_steps_done / total_content_steps
-                        )
-                    else:
-                        pct = 0.30
-
-                    pct_display = int(min(pct, 1.0) * 100)
+            def _render() -> None:
+                pct_display = int(current_pct * 100)
+                if not content_phase_started:
+                    header = f"**階段 1/2 — Roadmap 生成** (迭代 {roadmap_iter_index + 1}) — {pct_display}%"
+                else:
                     node_info = ""
                     if total_content_nodes and total_content_nodes > 0:
                         current = min(content_node_index + 1, total_content_nodes)
                         node_info = f" — 節點 {current}/{total_content_nodes}"
-                    step_text.write(
-                        f"**階段 2/2 — 內容生成**{node_info} — {pct_display}%\n\n{label}"
-                    )
-                    progress_bar.progress(min(pct, 1.0))
+                    header = f"**階段 2/2 — 內容生成**{node_info} — {pct_display}%"
+                step_text.write(f"{header}\n\n{current_label}")
+                progress_bar.progress(current_pct)
+
+            langfuse_handler = LangfuseCallbackHandler()
+            cost_tracker = CostTracker()
+
+            bridge_handler = install_log_bridge()
+            try:
+                stream_iter = graph.stream(
+                    {
+                        "question": question,
+                        "user_preferences": preferences.to_prompt_context(),
+                    },
+                    context=context,
+                    stream_mode=["updates", "values", "custom"],
+                    subgraphs=True,
+                    config={"callbacks": [langfuse_handler, cost_tracker]},
+                )
+                for chunk in stream_iter:
+                    ns, stream_type, data = chunk
+
+                    if stream_type == "values":
+                        if not ns:
+                            result = data
+                        continue
+
+                    if stream_type == "custom":
+                        if not isinstance(data, dict) or data.get("kind") != "log":
+                            continue
+                        raw_message = str(data.get("message", "")).strip()
+                        if not raw_message:
+                            continue
+                        display_message = (
+                            raw_message if len(raw_message) <= 200
+                            else raw_message[:200] + "…"
+                        )
+                        recent_log_lines.append(f"▸ {display_message}")
+                        if len(recent_log_lines) > 100:
+                            recent_log_lines = recent_log_lines[-100:]
+                        # Reverse DOM order + flex column-reverse keeps scroll
+                        # anchored at the visual bottom without JS, so no iframe
+                        # blink on every update.
+                        line_divs = "".join(
+                            f"<div>{html_module.escape(line)}</div>"
+                            for line in reversed(recent_log_lines)
+                        )
+                        container_style = (
+                            "height:216px;overflow-y:auto;"
+                            "display:flex;flex-direction:column-reverse;"
+                            "padding:10px 14px;"
+                            "background:#f5f5f7;color:#374151;"
+                            "border:1px solid #e5e7eb;border-radius:6px;"
+                            "font-family:'Source Code Pro',ui-monospace,"
+                            "SFMono-Regular,monospace;font-size:12px;"
+                            "line-height:1.6;white-space:pre-wrap;"
+                        )
+                        log_slot.markdown(
+                            f'<div style="{container_style}">{line_divs}</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                        anchors = (
+                            CONTENT_ANCHORS if content_phase_started else ROADMAP_ANCHORS
+                        )
+                        allow_rewind = False
+                        for pattern, sub, label, kind in anchors:
+                            m = pattern.search(raw_message)
+                            if not m:
+                                continue
+                            if label is not None:
+                                current_label = label
+                            if not content_phase_started:
+                                if kind == "pass":
+                                    roadmap_sub = 1.0
+                                elif kind in ("retry_search", "retry_generation"):
+                                    roadmap_iter_index += 1
+                                    roadmap_sub = sub
+                                    allow_rewind = True
+                                else:
+                                    roadmap_sub = max(roadmap_sub, sub)
+                            else:
+                                if kind is True and m.groups():
+                                    parsed_idx = int(m.group(1))
+                                    if parsed_idx != content_node_index:
+                                        content_node_index = parsed_idx
+                                        current_node_sub = 0.0
+                                    current_node_sub = max(current_node_sub, sub)
+                                elif kind == "advance":
+                                    content_node_index = int(m.group(1)) - 1
+                                    current_node_sub = 1.0
+                                elif kind is False:
+                                    current_node_sub = sub
+                                    allow_rewind = True
+                                else:
+                                    current_node_sub = max(current_node_sub, sub)
+                            break
+
+                        new_pct = _recompute_pct()
+                        if allow_rewind:
+                            current_pct = new_pct
+                        else:
+                            current_pct = max(current_pct, min(new_pct, 1.0))
+                        _render()
+                        continue
+
+                    if stream_type != "updates":
+                        continue
+
+                    node_name = next(iter(data.keys()), None)
+                    if node_name is None:
+                        continue
+
+                    # Updates are only used to snap into content phase and learn
+                    # how many content nodes we'll generate; all intra-phase
+                    # progress is anchor-driven from the custom log stream.
+                    if (
+                        node_name == "content_planning_node"
+                        and not content_phase_started
+                    ):
+                        content_phase_started = True
+                        node_output = data.get("content_planning_node", {})
+                        content_order = node_output.get("content_order") or result.get(
+                            "content_order", []
+                        )
+                        total_content_nodes = (
+                            len(content_order) if content_order else 1
+                        )
+                        content_node_index = 0
+                        current_node_sub = 0.0
+                        current_pct = max(current_pct, 0.30)
+                        _render()
+            finally:
+                uninstall_log_bridge(bridge_handler)
 
             progress_bar.progress(1.0)
 
