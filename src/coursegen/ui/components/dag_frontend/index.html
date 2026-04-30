@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<title>CourseGen DAG</title>
+<style>
+  html, body { margin: 0; padding: 0; }
+  body {
+    padding: 8px;
+    background: white;
+    font-family: -apple-system, "Helvetica Neue", "Microsoft JhengHei", sans-serif;
+    color: #111827;
+  }
+
+  .dag-canvas {
+    position: relative;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: auto;
+  }
+  .dag-canvas svg {
+    position: absolute; top: 0; left: 0;
+    pointer-events: none;
+  }
+
+  .dag-card {
+    position: absolute;
+    width: 60px;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+  }
+  .dag-card.dimmed { opacity: 0.18; }
+  .dag-card.focused { z-index: 5; }
+  .dag-card:hover { transform: translateY(-1px); }
+
+  .circle {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: box-shadow 0.15s;
+  }
+  .dag-card.focused .circle {
+    box-shadow: 0 0 0 3px #2563eb, 0 4px 12px rgba(37,99,235,0.3);
+  }
+  .dag-card.target .circle {
+    box-shadow: 0 0 0 3px #dc2626, 0 4px 12px rgba(220,38,38,0.3);
+  }
+
+  .node-label {
+    width: 200px;
+    margin-left: -70px;
+    margin-top: 6px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: #111827;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+  }
+  .node-num {
+    font-weight: 700;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+    margin-right: 2px;
+  }
+  .dag-card.focused .node-num { color: #2563eb; }
+  .dag-card.target .node-num { color: #dc2626; }
+
+  .dag-edge {
+    transition: opacity 0.2s, stroke 0.2s, stroke-width 0.2s;
+  }
+  .dag-edge.dimmed-edge { opacity: 0.12; }
+  .dag-edge.focused-edge {
+    stroke: #2563eb !important;
+    stroke-width: 2.4 !important;
+    opacity: 1;
+    marker-end: url(#arrow-focused) !important;
+  }
+
+  .empty {
+    padding: 40px;
+    text-align: center;
+    color: #6b7280;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div id="root"><div class="empty">等待 roadmap 資料...</div></div>
+<script>
+  // ── Manual Streamlit component messaging protocol ───────────────
+  // (avoids needing the npm streamlit-component-lib bundle)
+  function send(type, payload) {
+    const msg = Object.assign({ isStreamlitMessage: true, type }, payload);
+    window.parent.postMessage(msg, "*");
+  }
+  function setReady() { send("streamlit:componentReady", { apiVersion: 1 }); }
+  function setFrameHeight(h) { send("streamlit:setFrameHeight", { height: h }); }
+  function setComponentValue(v) { send("streamlit:setComponentValue", { value: v, dataType: "json" }); }
+
+  let lastArgs = null;
+  let focusData = {};
+  let globalNumbers = {};
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function buildSVG(args) {
+    const cw = args.canvas_width;
+    const ch = args.canvas_height;
+    const w = args.circle_w;
+    const h = args.circle_h;
+    const cyOff = h / 2;
+    const posMap = {};
+    for (const n of args.nodes) posMap[n.id] = [n.x, n.y];
+
+    const paths = args.edges.map(function (e) {
+      if (!posMap[e.src] || !posMap[e.dst]) return "";
+      const sx = posMap[e.src][0], sy = posMap[e.src][1];
+      const dx = posMap[e.dst][0], dy = posMap[e.dst][1];
+      const x1 = sx + w, y1 = sy + cyOff;
+      const x2 = dx, y2 = dy + cyOff;
+      const cx = (x1 + x2) / 2;
+      const d = "M " + x1 + " " + y1 + " C " + cx + " " + y1 + ", " + cx + " " + y2 + ", " + x2 + " " + y2;
+      return '<path class="dag-edge" data-src="' + escapeHtml(e.src) + '" data-dst="' + escapeHtml(e.dst) + '" d="' + d + '" stroke="#fda4af" stroke-width="1.5" fill="none" marker-end="url(#arrow-default)"/>';
+    }).join("");
+
+    return (
+      '<svg width="' + cw + '" height="' + ch + '">' +
+        '<defs>' +
+          '<marker id="arrow-default" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+            '<path d="M 0 0 L 10 5 L 0 10 z" fill="#fda4af"/>' +
+          '</marker>' +
+          '<marker id="arrow-focused" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+            '<path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>' +
+          '</marker>' +
+        '</defs>' +
+        paths +
+      '</svg>'
+    );
+  }
+
+  function buildCards(args) {
+    return args.nodes.map(function (n) {
+      return (
+        '<div class="dag-card" data-node-id="' + escapeHtml(n.id) + '" ' +
+        'style="left:' + n.x + 'px;top:' + n.y + 'px;" ' +
+        'title="' + escapeHtml(n.label) + '">' +
+          '<div class="circle" style="background:' + escapeHtml(n.color) + '"></div>' +
+          '<div class="node-label">' +
+            '<span class="node-num">' + escapeHtml(n.number) + '</span>' +
+            '<span class="node-text">' + escapeHtml(n.label) + '</span>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join("");
+  }
+
+  function activate(targetId) {
+    const focused = focusData[targetId] || {};
+    document.querySelectorAll('.dag-card').forEach(function (card) {
+      const id = card.dataset.nodeId;
+      const subNum = focused[id];
+      const numEl = card.querySelector('.node-num');
+      if (subNum !== undefined) {
+        card.classList.remove('dimmed');
+        card.classList.add('focused');
+        card.classList.toggle('target', id === targetId);
+        if (numEl) numEl.textContent = subNum;
+      } else {
+        card.classList.add('dimmed');
+        card.classList.remove('focused', 'target');
+      }
+    });
+    document.querySelectorAll('.dag-edge').forEach(function (edge) {
+      const src = edge.dataset.src;
+      const dst = edge.dataset.dst;
+      if (src in focused && dst in focused) {
+        edge.classList.add('focused-edge');
+        edge.classList.remove('dimmed-edge');
+      } else {
+        edge.classList.add('dimmed-edge');
+        edge.classList.remove('focused-edge');
+      }
+    });
+  }
+
+  function clearFocus() {
+    document.querySelectorAll('.dag-card').forEach(function (card) {
+      const id = card.dataset.nodeId;
+      const numEl = card.querySelector('.node-num');
+      if (numEl) numEl.textContent = globalNumbers[id] || '';
+      card.classList.remove('dimmed', 'focused', 'target');
+    });
+    document.querySelectorAll('.dag-edge').forEach(function (edge) {
+      edge.classList.remove('dimmed-edge', 'focused-edge');
+    });
+  }
+
+  function doRender(args) {
+    if (!args || !args.nodes || args.nodes.length === 0) {
+      document.getElementById('root').innerHTML = '<div class="empty">沒有節點可顯示</div>';
+      setFrameHeight(80);
+      return;
+    }
+
+    focusData = args.focus_data || {};
+    globalNumbers = args.global_numbers || {};
+
+    const root = document.getElementById('root');
+    root.innerHTML =
+      '<div class="dag-canvas" style="width:100%;height:' + args.canvas_height + 'px;">' +
+        buildSVG(args) +
+        buildCards(args) +
+      '</div>';
+
+    setFrameHeight(args.canvas_height + 30);
+
+    root.querySelectorAll('.dag-card').forEach(function (card) {
+      card.addEventListener('mouseenter', function () { activate(card.dataset.nodeId); });
+      card.addEventListener('click', function () {
+        // Include a timestamp so each click changes the value object
+        // (Streamlit detects component value changes by deep equality).
+        setComponentValue({ nodeId: card.dataset.nodeId, ts: Date.now() });
+      });
+    });
+
+    const canvas = root.querySelector('.dag-canvas');
+    if (canvas) {
+      canvas.addEventListener('mouseleave', clearFocus);
+    }
+  }
+
+  // Listen for render events from Streamlit
+  window.addEventListener("message", function (event) {
+    const data = event.data;
+    if (!data || data.type !== "streamlit:render") return;
+    lastArgs = data.args;
+    doRender(lastArgs);
+  });
+
+  // Tell Streamlit we're ready (handshake)
+  setReady();
+</script>
+</body>
+</html>
