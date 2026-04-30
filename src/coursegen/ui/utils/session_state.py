@@ -32,6 +32,10 @@ def init_session_state():
         "_dialog_dismissed": None,   # node ID of most recently dismissed dialog
         "_dialog_was_rendered": False,    # True if show_node_dialog() ran in the previous render
         "_dialog_internal_action": False, # True if a button inside the dialog triggered the rerun
+
+        # Per-node AI chat — keyed by f"{record_id}::{node_id}" so different
+        # generations don't bleed; session-only, never persisted to DB.
+        "node_chat_history": {},
     }
 
     for key, value in defaults.items():
@@ -51,3 +55,4 @@ def reset_roadmap_state():
     st.session_state.content_failed_nodes = []
     st.session_state.current_record_id = None
     st.session_state.last_preferences = None
+    st.session_state.node_chat_history = {}

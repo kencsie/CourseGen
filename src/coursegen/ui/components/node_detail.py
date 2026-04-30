@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 from coursegen.ui.components.content_renderer import render_content
+from coursegen.ui.components.node_chat import render_node_chat
 
 
 def get_node_data(roadmap_data: dict, node_id: str) -> Optional[dict]:
@@ -63,6 +64,7 @@ def render_node_detail(
 
     # Display dependencies
     dependencies = node_data.get("dependencies", [])
+    parent_summaries: List[dict] = []
     if dependencies:
         st.markdown("**⚠️ 前置節點:**")
         # Find parent node labels
@@ -71,8 +73,18 @@ def render_node_detail(
             parent_node = get_node_data(roadmap_data, parent_id)
             if parent_node:
                 parent_labels.append(f"• {parent_node['label']} ({parent_id})")
+                parent_summaries.append({
+                    "id": parent_id,
+                    "number": "",
+                    "label": parent_node["label"],
+                })
             else:
                 parent_labels.append(f"• {parent_id}")
+                parent_summaries.append({
+                    "id": parent_id,
+                    "number": "",
+                    "label": parent_id,
+                })
 
         for label in parent_labels:
             st.markdown(label)
@@ -123,12 +135,33 @@ def render_node_detail(
                 st.session_state._dialog_internal_action = True
                 st.rerun()
 
-    # Render teaching content
-    if content_failed_nodes and node_id in content_failed_nodes:
-        st.warning("⚠️ 此節點的教學內容生成失敗，請嘗試重新生成 Roadmap。")
-    elif content_map and node_id in content_map:
-        node_type = node_data.get("type", "")
-        render_content(node_type, content_map[node_id])
+    # Tabs: teaching content + per-node AI chat
+    st.markdown("---")
+    content_tab, chat_tab = st.tabs(["📖 教學內容", "💬 AI 助教"])
+
+    failed = bool(content_failed_nodes and node_id in content_failed_nodes)
+    content_entry = (content_map or {}).get(node_id) if content_map else None
+
+    with content_tab:
+        if failed:
+            st.warning("⚠️ 此節點的教學內容生成失敗，請嘗試重新生成 Roadmap。")
+        elif content_entry:
+            node_type = node_data.get("type", "")
+            render_content(node_type, content_entry)
+        else:
+            st.caption("尚未生成教學內容")
+
+    with chat_tab:
+        # Pass content_entry=None when failed/missing so the system prompt
+        # tells the LLM to fall back to description + parent context.
+        render_node_chat(
+            roadmap_data=roadmap_data,
+            node_id=node_id,
+            node_data=node_data,
+            node_number="",
+            parent_summaries=parent_summaries,
+            content_entry=None if failed else content_entry,
+        )
 
     # Close button
     st.markdown("---")
