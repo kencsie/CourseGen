@@ -7,6 +7,7 @@ from datetime import datetime
 
 from coursegen.ui.components.content_renderer import render_content
 from coursegen.ui.components.node_chat import render_node_chat
+from coursegen.ui.utils.node_numbering import compute_node_numbers
 
 
 def get_node_data(roadmap_data: dict, node_id: str) -> Optional[dict]:
@@ -50,6 +51,11 @@ def render_node_detail(
         st.error(f"❌ 找不到節點: {node_id}")
         return
 
+    # Compute hierarchical numbers (Kahn-layer based) for display
+    numbers = compute_node_numbers(roadmap_data)
+    node_number = numbers.get(node_id, "")
+    title_prefix = f"{node_number} " if node_number else ""
+
     # Get progress info
     progress_info = node_progress.get(node_id, {})
     status = progress_info.get("status", "not_started")
@@ -57,37 +63,34 @@ def render_node_detail(
     completed_at = progress_info.get("completed_at")
 
     # Display node information
-    st.subheader(f"📚 {node_data['label']}")
+    st.subheader(f"📚 {title_prefix}{node_data['label']}")
 
     st.markdown("**📝 節點說明:**")
     st.info(node_data.get("description", "無說明"))
 
-    # Display dependencies
+    # Display dependencies (with hierarchical numbers)
     dependencies = node_data.get("dependencies", [])
     parent_summaries: List[dict] = []
     if dependencies:
         st.markdown("**⚠️ 前置節點:**")
-        # Find parent node labels
-        parent_labels = []
         for parent_id in dependencies:
             parent_node = get_node_data(roadmap_data, parent_id)
+            parent_number = numbers.get(parent_id, "")
             if parent_node:
-                parent_labels.append(f"• {parent_node['label']} ({parent_id})")
+                prefix = f"{parent_number} " if parent_number else ""
+                st.markdown(f"• {prefix}{parent_node['label']}")
                 parent_summaries.append({
                     "id": parent_id,
-                    "number": "",
+                    "number": parent_number,
                     "label": parent_node["label"],
                 })
             else:
-                parent_labels.append(f"• {parent_id}")
+                st.markdown(f"• {parent_id}")
                 parent_summaries.append({
                     "id": parent_id,
-                    "number": "",
+                    "number": parent_number,
                     "label": parent_id,
                 })
-
-        for label in parent_labels:
-            st.markdown(label)
     else:
         st.markdown("**⚠️ 前置節點:** 無（起始節點）")
 
@@ -158,7 +161,7 @@ def render_node_detail(
             roadmap_data=roadmap_data,
             node_id=node_id,
             node_data=node_data,
-            node_number="",
+            node_number=node_number,
             parent_summaries=parent_summaries,
             content_entry=None if failed else content_entry,
         )
