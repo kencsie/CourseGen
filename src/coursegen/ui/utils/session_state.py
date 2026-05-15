@@ -14,6 +14,11 @@ def init_session_state():
         "content_model": "openai/gpt-5.4",
         "helper_model": "google/gemini-3-flash-preview",
 
+        # Auth state (Phase 2.5)
+        "auth_token": "",       # persisted to localStorage; resolves to user on startup
+        "authenticated": False,  # True after token resolved OR example demo entry
+        "read_only": False,     # True iff authenticated as example demo
+
         # Current roadmap data
         "roadmap": None,  # Current roadmap data (from LangGraph)
 

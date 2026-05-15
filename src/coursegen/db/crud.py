@@ -6,6 +6,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
+from coursegen.db.auth import EXAMPLE_USER_ID
 from coursegen.db.database import get_session
 from coursegen.db.models import GenerationRecord
 
@@ -27,6 +28,8 @@ def save_generation(
     cleaned_content_chars: int | None = None,
 ) -> str:
     """Save a generation record and return its ID."""
+    if user_id == EXAMPLE_USER_ID:
+        raise PermissionError("example is a demo user — cannot create records")
     record_id = str(uuid.uuid4())
     record = GenerationRecord(
         id=record_id,
@@ -116,6 +119,8 @@ def delete_generation(record_id: str, *, user_id: str | None) -> bool:
 
     user_id semantics match list_generations.
     """
+    if user_id == EXAMPLE_USER_ID:
+        raise PermissionError("example is a demo user — cannot delete records")
     with get_session() as session:
         query = session.query(GenerationRecord).filter(
             GenerationRecord.id == record_id

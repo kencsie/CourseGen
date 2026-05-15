@@ -33,3 +33,24 @@ class GenerationRecord(Base):
     content_map_json = Column(JSON, nullable=True)
     content_order_json = Column(JSON, nullable=True)
     content_failed_nodes_json = Column(JSON, nullable=True)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    user_id = Column(String(64), primary_key=True)
+    password_hash = Column(String(128), nullable=False)
+    created_at = Column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    token = Column(String(64), primary_key=True)
+    user_id = Column(String(64), nullable=False, index=True)
+    created_at = Column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    expires_at = Column(DateTime, nullable=False, index=True)

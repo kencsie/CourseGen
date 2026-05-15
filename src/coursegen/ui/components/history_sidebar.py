@@ -44,7 +44,14 @@ def render_history_sidebar() -> None:
                     _load_record(record["id"], nickname)
 
             with col2:
-                if st.button(
+                if st.session_state.read_only:
+                    st.button(
+                        "🗑️ 刪除",
+                        key=f"del_{record['id']}",
+                        use_container_width=True,
+                        disabled=True,
+                    )
+                elif st.button(
                     "🗑️ 刪除",
                     key=f"del_{record['id']}",
                     use_container_width=True,
