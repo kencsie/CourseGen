@@ -5,6 +5,7 @@ User preferences form component for Streamlit sidebar.
 import streamlit as st
 from coursegen.schemas import UserPreferences, Language
 from coursegen.ui.utils.browser_storage import persist_credentials
+from coursegen.ui.utils.session_state import reset_roadmap_state
 
 
 CONTENT_MODEL_PRESETS = [
@@ -73,20 +74,46 @@ def _model_selector(
         )
 
 
+def _do_logout() -> None:
+    """Revoke the active session token and reset auth-related state."""
+    from coursegen.db.auth import revoke_session
+    from coursegen.db.database import get_session
+    token = st.session_state.get("auth_token", "")
+    if token:
+        with get_session() as session:
+            revoke_session(session, token)
+    st.session_state.auth_token = ""
+    st.session_state.authenticated = False
+    st.session_state.read_only = False
+    # Clear any loaded roadmap so the next user starts with an empty workspace
+    # instead of inheriting the previous session's display state.
+    reset_roadmap_state()
+    # nickname intentionally left in state so the login screen pre-fills the
+    # last user — convenience for personal self-host
+    persist_credentials()
+
+
 def render_identity_and_api_form() -> None:
     """
-    Render the identity (nickname) + API settings (keys, models) block.
+    Render the identity (logged-in badge + logout) + API settings block.
 
     Writes directly to st.session_state — no return value.
     """
     st.sidebar.header("👤 你的身份")
-    st.sidebar.text_input(
-        "暱稱",
-        key="nickname",
-        placeholder="例如 alice",
-        help="用來識別你的歷史紀錄（Phase 2 啟用後將用於資料隔離）",
-        on_change=persist_credentials,
-    )
+
+    cols = st.sidebar.columns([1, 1])
+    with cols[0]:
+        if st.session_state.read_only:
+            st.markdown(f"**{st.session_state.nickname}** 🎓 demo")
+        else:
+            st.markdown(f"**{st.session_state.nickname}**")
+    with cols[1]:
+        if st.button("登出", key="_logout_btn", use_container_width=True):
+            _do_logout()
+            st.rerun()
+
+    if st.session_state.read_only:
+        st.sidebar.caption("ℹ️ Demo 模式 — 可看可載入，但不能新增 / 刪除")
 
     with st.sidebar.expander("🔑 API 設定", expanded=False):
         st.text_input(

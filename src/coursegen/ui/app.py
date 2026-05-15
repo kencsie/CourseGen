@@ -365,8 +365,16 @@ def render_sidebar():
     # Preferences form
     question, preferences = render_preferences_form()
 
-    # Generate button
-    if st.sidebar.button("🚀 生成 Roadmap", use_container_width=True, type="primary"):
+    # Generate button (disabled in demo mode)
+    if st.session_state.read_only:
+        st.sidebar.button(
+            "🚀 生成 Roadmap",
+            use_container_width=True,
+            type="primary",
+            disabled=True,
+        )
+        st.sidebar.caption("⚠️ Demo 模式無法新增 roadmap")
+    elif st.sidebar.button("🚀 生成 Roadmap", use_container_width=True, type="primary"):
         if not st.session_state.nickname.strip():
             st.sidebar.error("⚠️ 請先輸入暱稱")
         elif not st.session_state.api_key.strip():
@@ -553,6 +561,28 @@ def render_main_content():
         st.info("👈 請從左側側邊欄開始")
 
 
+def _resolve_auth_on_startup() -> None:
+    """Validate auth_token from localStorage against DB once per session.
+
+    Idempotent: skips if already authenticated this Streamlit session. If the
+    token is missing, unknown, or expired, falls through silently and main()
+    will route to the login screen.
+    """
+    if st.session_state.authenticated:
+        return
+    token = st.session_state.get("auth_token", "")
+    if not token:
+        return
+    from coursegen.db.auth import resolve_session
+    from coursegen.db.database import get_session
+    with get_session() as session:
+        user_id = resolve_session(session, token)
+    if user_id:
+        st.session_state.nickname = user_id
+        st.session_state.authenticated = True
+        st.session_state.read_only = False
+
+
 def main():
     """Main application entry point."""
     # Initialize database
@@ -563,6 +593,14 @@ def main():
 
     # Hydrate credentials from browser localStorage (idempotent)
     load_persisted_credentials()
+
+    # Resolve auth_token → authenticated flag (Phase 2.5)
+    _resolve_auth_on_startup()
+
+    if not st.session_state.authenticated:
+        from coursegen.ui.components.login_form import render_login_screen
+        render_login_screen()
+        return
 
     # Render sidebar
     render_sidebar()
