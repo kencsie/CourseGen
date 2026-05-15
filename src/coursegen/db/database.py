@@ -16,7 +16,7 @@ SessionLocal = sessionmaker(bind=engine)
 
 
 def init_db():
-    """Create all tables (idempotent)."""
+    """Create all tables (idempotent) and seed example user."""
     # Ensure the directory for SQLite file exists
     if DATABASE_URL.startswith("sqlite:///") and not DATABASE_URL.startswith(
         "sqlite:////"
@@ -26,6 +26,12 @@ def init_db():
         if db_dir:
             os.makedirs(db_dir, exist_ok=True)
     Base.metadata.create_all(engine)
+
+    # Seed reference roadmaps for 'example' user (no-op if already seeded)
+    from coursegen.db.seed import seed_example_user
+
+    with get_session() as session:
+        seed_example_user(session)
 
 
 @contextmanager

@@ -12,6 +12,7 @@ from coursegen.db.models import GenerationRecord
 
 def save_generation(
     *,
+    user_id: str,
     topic: str,
     language: str,
     roadmap: dict,
@@ -29,6 +30,7 @@ def save_generation(
     record_id = str(uuid.uuid4())
     record = GenerationRecord(
         id=record_id,
+        user_id=user_id,
         topic=topic,
         language=language,
         created_at=datetime.now(timezone.utc),
@@ -48,15 +50,20 @@ def save_generation(
     return record_id
 
 
-def list_generations(limit: int = 20) -> list[dict]:
-    """Return a summary list of recent generation records."""
+def list_generations(limit: int = 20, *, user_id: str | None) -> list[dict]:
+    """Return a summary list of recent generation records.
+
+    Pass user_id='alice' to scope to one user; pass user_id=None to see all
+    (admin mode — used by eval CLI only). The keyword-only no-default signature
+    forces every call site to make an explicit choice.
+    """
     with get_session() as session:
-        records = (
-            session.query(GenerationRecord)
-            .order_by(GenerationRecord.created_at.desc())
-            .limit(limit)
-            .all()
+        query = session.query(GenerationRecord).order_by(
+            GenerationRecord.created_at.desc()
         )
+        if user_id is not None:
+            query = query.filter(GenerationRecord.user_id == user_id)
+        records = query.limit(limit).all()
         return [
             {
                 "id": r.id,
@@ -71,10 +78,19 @@ def list_generations(limit: int = 20) -> list[dict]:
         ]
 
 
-def load_generation(record_id: str) -> dict | None:
-    """Load a full generation record by ID."""
+def load_generation(record_id: str, *, user_id: str | None) -> dict | None:
+    """Load a full generation record by ID.
+
+    user_id semantics match list_generations: explicit value scopes to user,
+    explicit None disables the filter (admin).
+    """
     with get_session() as session:
-        record = session.get(GenerationRecord, record_id)
+        query = session.query(GenerationRecord).filter(
+            GenerationRecord.id == record_id
+        )
+        if user_id is not None:
+            query = query.filter(GenerationRecord.user_id == user_id)
+        record = query.first()
         if not record:
             return None
         return {
@@ -95,10 +111,18 @@ def load_generation(record_id: str) -> dict | None:
         }
 
 
-def delete_generation(record_id: str) -> bool:
-    """Delete a generation record. Returns True if found and deleted."""
+def delete_generation(record_id: str, *, user_id: str | None) -> bool:
+    """Delete a generation record. Returns True if found and deleted.
+
+    user_id semantics match list_generations.
+    """
     with get_session() as session:
-        record = session.get(GenerationRecord, record_id)
+        query = session.query(GenerationRecord).filter(
+            GenerationRecord.id == record_id
+        )
+        if user_id is not None:
+            query = query.filter(GenerationRecord.user_id == user_id)
+        record = query.first()
         if not record:
             return False
         session.delete(record)
