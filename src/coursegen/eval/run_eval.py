@@ -25,22 +25,22 @@ from coursegen.eval.structural_checks import run_structural_checks
 
 
 def _load_all_generations(record_id: str | None = None) -> list[dict]:
-    """Load full generation records from DB."""
+    """Load full generation records from DB (admin mode: across all users)."""
     if record_id:
-        gen = load_generation(record_id)
+        gen = load_generation(record_id, user_id=None)
         if gen is None:
             print(f"Error: record '{record_id}' not found.")
             raise SystemExit(1)
         return [gen]
 
-    summaries = list_generations(limit=200)
+    summaries = list_generations(limit=200, user_id=None)
     if not summaries:
         print("No generation records found in DB.")
         raise SystemExit(1)
 
     generations = []
     for s in summaries:
-        gen = load_generation(s["id"])
+        gen = load_generation(s["id"], user_id=None)
         if gen:
             generations.append(gen)
     return generations
@@ -146,7 +146,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.list:
-        summaries = list_generations(limit=200)
+        summaries = list_generations(limit=200, user_id=None)
         if not summaries:
             print("No generation records found.")
             raise SystemExit(0)

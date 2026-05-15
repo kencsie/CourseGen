@@ -10,7 +10,12 @@ def render_history_sidebar() -> None:
     """Render saved generation history in the sidebar."""
     st.sidebar.markdown("### 📜 歷史紀錄")
 
-    records = list_generations(limit=20)
+    nickname = st.session_state.get("nickname", "").strip()
+    if not nickname:
+        st.sidebar.info("輸入暱稱後可看歷史紀錄")
+        return
+
+    records = list_generations(limit=20, user_id=nickname)
 
     if not records:
         st.sidebar.caption("尚無儲存的紀錄")
@@ -36,7 +41,7 @@ def render_history_sidebar() -> None:
                     key=f"load_{record['id']}",
                     use_container_width=True,
                 ):
-                    _load_record(record["id"])
+                    _load_record(record["id"], nickname)
 
             with col2:
                 if st.button(
@@ -44,16 +49,16 @@ def render_history_sidebar() -> None:
                     key=f"del_{record['id']}",
                     use_container_width=True,
                 ):
-                    delete_generation(record["id"])
+                    delete_generation(record["id"], user_id=nickname)
                     # Clear current if we just deleted it
                     if st.session_state.get("current_record_id") == record["id"]:
                         st.session_state.current_record_id = None
                     st.rerun()
 
 
-def _load_record(record_id: str) -> None:
+def _load_record(record_id: str, user_id: str) -> None:
     """Load a saved record into session state."""
-    data = load_generation(record_id)
+    data = load_generation(record_id, user_id=user_id)
     if not data:
         st.sidebar.error("❌ 載入失敗")
         return

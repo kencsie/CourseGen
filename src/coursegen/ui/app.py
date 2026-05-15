@@ -11,6 +11,10 @@ import time
 from datetime import datetime
 from dotenv import load_dotenv
 
+# Load environment variables BEFORE importing any coursegen.* module — several
+# of them read env vars (DATABASE_URL, BASE_URL, ...) at module-load time.
+load_dotenv()
+
 # Configure logging (same format as basic.py)
 logging.basicConfig(
     level=logging.INFO,
@@ -47,9 +51,6 @@ from coursegen.ui.utils.log_bridge import install as install_log_bridge, uninsta
 
 # Langfuse observability
 from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
-
-# Load environment variables
-load_dotenv()
 
 # Log anchors: regex patterns matched against live log messages to infer the
 # current sub-position inside a node. Tuple shape:
@@ -404,6 +405,7 @@ def render_sidebar():
                 # Auto-save to database
                 roadmap = result["roadmap"]
                 record_id = save_generation(
+                    user_id=st.session_state.nickname,
                     topic=roadmap.get("topic", "未命名"),
                     language=preferences.language.value,
                     roadmap=roadmap,

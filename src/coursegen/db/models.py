@@ -17,6 +17,7 @@ class GenerationRecord(Base):
     __tablename__ = "generation_records"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(64), nullable=False, index=True)
     topic = Column(String, nullable=False)
     language = Column(String, nullable=False)
     created_at = Column(
