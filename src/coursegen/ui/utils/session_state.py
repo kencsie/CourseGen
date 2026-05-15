@@ -7,6 +7,13 @@ import streamlit as st
 def init_session_state():
     """Initialize all Streamlit session state variables."""
     defaults = {
+        # User identity & API credentials (persisted to browser localStorage)
+        "nickname": "",
+        "api_key": "",
+        "tavily_key": "",
+        "content_model": "openai/gpt-5.4",
+        "helper_model": "google/gemini-3-flash-preview",
+
         # Current roadmap data
         "roadmap": None,  # Current roadmap data (from LangGraph)
 
