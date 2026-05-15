@@ -4,6 +4,120 @@ User preferences form component for Streamlit sidebar.
 
 import streamlit as st
 from coursegen.schemas import UserPreferences, Language
+from coursegen.ui.utils.browser_storage import persist_credentials
+
+
+CONTENT_MODEL_PRESETS = [
+    "openai/gpt-5.4",
+    "anthropic/claude-sonnet-4.6",
+    "google/gemini-3.1-pro-preview",
+    "google/gemini-3-flash-preview",
+    "Custom...",
+]
+
+HELPER_MODEL_PRESETS = [
+    "google/gemini-3-flash-preview",
+    "anthropic/claude-haiku-4.5",
+    "openai/gpt-5-mini",
+    "Custom...",
+]
+
+
+def _model_selector(
+    label: str,
+    state_key: str,
+    presets: list[str],
+    help_text: str,
+) -> None:
+    """
+    Render a model selectbox + Custom text input fallback.
+
+    Persistence runs only via on_change callbacks (fires once per user change),
+    never synchronously inside render — otherwise calling persist_credentials
+    twice in one render creates duplicate component keys.
+    """
+    current = st.session_state.get(state_key, presets[0])
+    is_custom = current not in presets[:-1]
+    select_index = len(presets) - 1 if is_custom else presets.index(current)
+
+    select_widget_key = f"_select_{state_key}"
+    custom_widget_key = f"_custom_{state_key}"
+
+    def _on_select_change():
+        new_choice = st.session_state[select_widget_key]
+        if new_choice != "Custom...":
+            st.session_state[state_key] = new_choice
+            persist_credentials()
+        # If Custom, keep current state_key value as starting point for editing
+
+    def _on_custom_change():
+        st.session_state[state_key] = st.session_state.get(custom_widget_key, "")
+        persist_credentials()
+
+    choice = st.sidebar.selectbox(
+        label,
+        options=presets,
+        index=select_index,
+        help=help_text,
+        key=select_widget_key,
+        on_change=_on_select_change,
+    )
+
+    if choice == "Custom...":
+        st.sidebar.text_input(
+            f"{label} — 自訂模型 ID",
+            value=current if is_custom else "",
+            placeholder="例如 openai/gpt-5-mini",
+            key=custom_widget_key,
+            on_change=_on_custom_change,
+        )
+
+
+def render_identity_and_api_form() -> None:
+    """
+    Render the identity (nickname) + API settings (keys, models) block.
+
+    Writes directly to st.session_state — no return value.
+    """
+    st.sidebar.header("👤 你的身份")
+    st.sidebar.text_input(
+        "暱稱",
+        key="nickname",
+        placeholder="例如 alice",
+        help="用來識別你的歷史紀錄（Phase 2 啟用後將用於資料隔離）",
+        on_change=persist_credentials,
+    )
+
+    with st.sidebar.expander("🔑 API 設定", expanded=False):
+        st.text_input(
+            "OpenRouter API Key",
+            type="password",
+            key="api_key",
+            placeholder="sk-or-v1-...",
+            help="從 https://openrouter.ai 取得。儲存在你的瀏覽器，不會上傳到 server。",
+            on_change=persist_credentials,
+        )
+        st.text_input(
+            "Tavily Key",
+            type="password",
+            key="tavily_key",
+            placeholder="tvly-...",
+            help="從 https://tavily.com 取得。必填 — 用於知識搜尋與內容生成的來源依據。",
+            on_change=persist_credentials,
+        )
+        st.markdown("---")
+        _model_selector(
+            "內容生成模型",
+            state_key="content_model",
+            presets=CONTENT_MODEL_PRESETS,
+            help_text="用於生成 roadmap 結構與每個節點的教學內容，影響輸出品質，建議選高品質模型",
+        )
+        _model_selector(
+            "輔助任務模型",
+            state_key="helper_model",
+            presets=HELPER_MODEL_PRESETS,
+            help_text="用於搜尋查詢生成、結果過濾、節點 AI 助教等簡單任務，可選便宜模型省成本",
+        )
 
 
 def render_preferences_form() -> tuple[str, UserPreferences]:

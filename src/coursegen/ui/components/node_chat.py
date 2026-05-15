@@ -138,9 +138,9 @@ def render_node_chat(
     key = _chat_key(record_id, node_id)
     history: list[dict] = st.session_state.node_chat_history.setdefault(key, [])
 
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = st.session_state.get("api_key", "")
     if not api_key:
-        st.error("⚠️ 未設定 OPENROUTER_API_KEY，無法使用 AI 助教。")
+        st.error("⚠️ 請在 Sidebar 的「🔑 API 設定」中輸入 OpenRouter API Key，才能使用 AI 助教。")
         return
 
     st.caption(
@@ -183,8 +183,9 @@ def render_node_chat(
                 messages.append(AIMessage(content=msg["content"]))
         messages.append(HumanMessage(content=prompt))
 
-        chat_model = os.getenv("CHAT_MODEL") or os.getenv(
-            "CHEAP_MODEL", "google/gemini-3-flash-preview"
+        chat_model = (
+            st.session_state.get("helper_model")
+            or "google/gemini-3-flash-preview"
         )
         try:
             model = init_chat_model(

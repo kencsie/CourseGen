@@ -27,7 +27,10 @@ from coursegen.workflows.basic import graph
 from coursegen.schemas import UserPreferences
 
 # Import UI components
-from coursegen.ui.components.preferences_form import render_preferences_form
+from coursegen.ui.components.preferences_form import (
+    render_preferences_form,
+    render_identity_and_api_form,
+)
 from coursegen.ui.components.roadmap_visualizer import render_roadmap_graph
 from coursegen.ui.components.node_detail import render_node_detail
 
@@ -37,6 +40,7 @@ from coursegen.db.crud import save_generation
 
 # Import utilities
 from coursegen.ui.utils.session_state import init_session_state, reset_roadmap_state
+from coursegen.ui.utils.browser_storage import load_persisted_credentials
 from coursegen.ui.components.history_sidebar import render_history_sidebar
 from coursegen.ui.utils.cost_tracker import CostTracker
 from coursegen.ui.utils.log_bridge import install as install_log_bridge, uninstall as uninstall_log_bridge
@@ -109,25 +113,21 @@ def generate_roadmap(question: str, preferences: UserPreferences):
         start_time = time.time()
 
         try:
+            content_model = st.session_state.content_model
+            helper_model = st.session_state.helper_model
+            tavily_key = st.session_state.tavily_key or None
+
             context = {
-                "model_name": os.getenv("MODEL_NAME", "openai/gpt-5.2"),
-                "base_url": os.getenv("BASE_URL"),
-                "openrouter_api_key": os.getenv("OPENROUTER_API_KEY"),
-                "roadmap_critic_model": os.getenv(
-                    "ROADMAP_CRITIC_MODEL", "openai/gpt-5.2"
-                ),
+                "model_name": content_model,
+                "base_url": os.getenv("BASE_URL", "https://openrouter.ai/api/v1"),
+                "openrouter_api_key": st.session_state.api_key,
+                "roadmap_critic_model": content_model,
                 "max_iterations": int(os.getenv("MAX_ITERATIONS", "5")),
-                "tavily_api_key": os.getenv("TAVILY_KEY"),
-                "content_model": os.getenv(
-                    "CONTENT_MODEL", "openai/gpt-5.2"
-                ),
-                "content_critic_model": os.getenv(
-                    "CONTENT_CRITIC_MODEL", "openai/gpt-5.2"
-                ),
+                "tavily_api_key": tavily_key,
+                "content_model": content_model,
+                "content_critic_model": content_model,
                 "content_max_retries": int(os.getenv("CONTENT_MAX_RETRIES", "5")),
-                "cheap_model": os.getenv(
-                    "CHEAP_MODEL", "google/gemini-3-flash-preview"
-                ),
+                "cheap_model": helper_model,
             }
 
             st.write(f"📝 主題: {question}")
@@ -357,12 +357,24 @@ def handle_status_update(node_id: str, new_status: str):
 
 def render_sidebar():
     """Render sidebar with form, save button, and history."""
+    # Identity & API settings (nickname, API keys, model selection)
+    render_identity_and_api_form()
+    st.sidebar.markdown("---")
+
     # Preferences form
     question, preferences = render_preferences_form()
 
     # Generate button
     if st.sidebar.button("🚀 生成 Roadmap", use_container_width=True, type="primary"):
-        if not question.strip():
+        if not st.session_state.nickname.strip():
+            st.sidebar.error("⚠️ 請先輸入暱稱")
+        elif not st.session_state.api_key.strip():
+            st.sidebar.error("⚠️ 請在 API 設定中輸入 OpenRouter API Key")
+        elif not st.session_state.tavily_key.strip():
+            st.sidebar.error("⚠️ 請在 API 設定中輸入 Tavily Key")
+        elif not st.session_state.content_model.strip() or not st.session_state.helper_model.strip():
+            st.sidebar.error("⚠️ 請選擇或填寫模型名稱")
+        elif not question.strip():
             st.sidebar.error("⚠️ 請輸入學習主題")
         else:
             # Reset state and generate
@@ -546,6 +558,9 @@ def main():
 
     # Initialize session state
     init_session_state()
+
+    # Hydrate credentials from browser localStorage (idempotent)
+    load_persisted_credentials()
 
     # Render sidebar
     render_sidebar()
