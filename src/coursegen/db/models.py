@@ -2,11 +2,11 @@
 SQLAlchemy ORM model for generation records.
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, Float, Integer, String
-from sqlalchemy.types import JSON
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.types import JSON
 
 
 class Base(DeclarativeBase):
@@ -21,7 +21,7 @@ class GenerationRecord(Base):
     topic = Column(String, nullable=False)
     language = Column(String, nullable=False)
     created_at = Column(
-        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+        DateTime, nullable=False, default=lambda: datetime.now(UTC)
     )
     generation_time_sec = Column(Float, nullable=True)
     iteration_count = Column(Integer, nullable=True)
@@ -41,7 +41,7 @@ class User(Base):
     user_id = Column(String(64), primary_key=True)
     password_hash = Column(String(128), nullable=False)
     created_at = Column(
-        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+        DateTime, nullable=False, default=lambda: datetime.now(UTC)
     )
 
 
@@ -51,6 +51,6 @@ class UserSession(Base):
     token = Column(String(64), primary_key=True)
     user_id = Column(String(64), nullable=False, index=True)
     created_at = Column(
-        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+        DateTime, nullable=False, default=lambda: datetime.now(UTC)
     )
     expires_at = Column(DateTime, nullable=False, index=True)

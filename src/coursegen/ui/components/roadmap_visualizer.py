@@ -15,7 +15,6 @@ the clicked node id (or None), same as before.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Optional
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -113,8 +112,8 @@ def _compute_focus_levels(
 # ── Public render function ────────────────────────────────────────────
 def render_roadmap_graph(
     roadmap_data: dict,
-    node_progress: Dict[str, dict],
-) -> Optional[str]:
+    node_progress: dict[str, dict],
+) -> str | None:
     """Render the interactive DAG and return the clicked node id (or None)."""
     if not roadmap_data or "nodes" not in roadmap_data:
         st.warning("⚠️ 沒有可用的 roadmap 資料")

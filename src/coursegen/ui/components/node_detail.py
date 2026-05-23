@@ -1,16 +1,16 @@
 """
 Node detail and progress tracking component.
 """
-import streamlit as st
-from typing import Dict, List, Optional
 from datetime import datetime
+
+import streamlit as st
 
 from coursegen.ui.components.content_renderer import render_content
 from coursegen.ui.components.node_chat import render_node_chat
 from coursegen.ui.utils.node_numbering import compute_node_numbers
 
 
-def get_node_data(roadmap_data: dict, node_id: str) -> Optional[dict]:
+def get_node_data(roadmap_data: dict, node_id: str) -> dict | None:
     """Get node data from roadmap by node ID."""
     nodes = roadmap_data.get("nodes", [])
     for node in nodes:
@@ -19,7 +19,7 @@ def get_node_data(roadmap_data: dict, node_id: str) -> Optional[dict]:
     return None
 
 
-def format_datetime(dt: Optional[datetime]) -> str:
+def format_datetime(dt: datetime | None) -> str:
     """Format datetime for display."""
     if dt is None:
         return "未記錄"
@@ -29,10 +29,10 @@ def format_datetime(dt: Optional[datetime]) -> str:
 def render_node_detail(
     roadmap_data: dict,
     node_id: str,
-    node_progress: Dict[str, dict],
+    node_progress: dict[str, dict],
     on_status_update,
-    content_map: Dict[str, dict] | None = None,
-    content_failed_nodes: List[str] | None = None,
+    content_map: dict[str, dict] | None = None,
+    content_failed_nodes: list[str] | None = None,
 ) -> None:
     """
     Render node detail view with progress tracking and teaching content.
@@ -70,7 +70,7 @@ def render_node_detail(
 
     # Display dependencies (with hierarchical numbers)
     dependencies = node_data.get("dependencies", [])
-    parent_summaries: List[dict] = []
+    parent_summaries: list[dict] = []
     if dependencies:
         st.markdown("**⚠️ 前置節點:**")
         for parent_id in dependencies:

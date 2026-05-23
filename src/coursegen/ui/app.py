@@ -4,11 +4,12 @@ CourseGen Streamlit UI - Main Application
 
 import html as html_module
 import logging
-import re
-import streamlit as st
 import os
+import re
 import time
 from datetime import datetime
+
+import streamlit as st
 from dotenv import load_dotenv
 
 # Load environment variables BEFORE importing any coursegen.* module — several
@@ -25,32 +26,33 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Import workflow
-from coursegen.workflows.basic import graph
+# Langfuse observability
+from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
 
-# Import schemas
-from coursegen.schemas import UserPreferences
-
-# Import UI components
-from coursegen.ui.components.preferences_form import (
-    render_preferences_form,
-    render_identity_and_api_form,
-)
-from coursegen.ui.components.roadmap_visualizer import render_roadmap_graph
-from coursegen.ui.components.node_detail import render_node_detail
+from coursegen.db.crud import save_generation
 
 # Import database
 from coursegen.db.database import init_db
-from coursegen.db.crud import save_generation
+
+# Import schemas
+from coursegen.schemas import UserPreferences
+from coursegen.ui.components.history_sidebar import render_history_sidebar
+from coursegen.ui.components.node_detail import render_node_detail
+
+# Import UI components
+from coursegen.ui.components.preferences_form import (
+    render_identity_and_api_form,
+    render_preferences_form,
+)
+from coursegen.ui.components.roadmap_visualizer import render_roadmap_graph
+from coursegen.ui.utils.browser_storage import load_persisted_credentials
+from coursegen.ui.utils.cost_tracker import CostTracker
+from coursegen.ui.utils.log_bridge import install as install_log_bridge
+from coursegen.ui.utils.log_bridge import uninstall as uninstall_log_bridge
 
 # Import utilities
 from coursegen.ui.utils.session_state import init_session_state, reset_roadmap_state
-from coursegen.ui.utils.browser_storage import load_persisted_credentials
-from coursegen.ui.components.history_sidebar import render_history_sidebar
-from coursegen.ui.utils.cost_tracker import CostTracker
-from coursegen.ui.utils.log_bridge import install as install_log_bridge, uninstall as uninstall_log_bridge
-
-# Langfuse observability
-from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
+from coursegen.workflows.basic import graph
 
 # Log anchors: regex patterns matched against live log messages to infer the
 # current sub-position inside a node. Tuple shape:

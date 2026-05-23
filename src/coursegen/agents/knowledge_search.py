@@ -1,22 +1,24 @@
-from coursegen.schemas import (
-    RoadmapState,
-    ContextSchema,
-    KnowledgeContext,
-    SearchResult,
-    RoadmapSearchQueryResult,
-    SourceFilterResponse,
-)
+import logging
+from concurrent.futures import ThreadPoolExecutor
+
+from langchain.chat_models import init_chat_model
+from langgraph.runtime import Runtime
+from tavily import TavilyClient
+
 from coursegen.prompts.knowledge_synthesis import (
     KNOWLEDGE_SYNTHESIS_PROMPT,
     ROADMAP_SOURCE_FILTER_PROMPT,
 )
 from coursegen.prompts.roadmap import ROADMAP_SEARCH_QUERY_PROMPT
+from coursegen.schemas import (
+    ContextSchema,
+    KnowledgeContext,
+    RoadmapSearchQueryResult,
+    RoadmapState,
+    SearchResult,
+    SourceFilterResponse,
+)
 from coursegen.utils.content_cleaner import clean_search_results, select_top_sources
-from langgraph.runtime import Runtime
-from langchain.chat_models import init_chat_model
-from tavily import TavilyClient
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,7 @@ def knowledge_search_node(state: RoadmapState, runtime: Runtime[ContextSchema]) 
     if previous_queries:
         flat_prev = [q for batch in previous_queries for q in batch]
         previous_queries_str = (
-            f"\n⚠️ Previously used queries (do NOT repeat these):\n"
+            "\n⚠️ Previously used queries (do NOT repeat these):\n"
             + "\n".join(f"- {q}" for q in flat_prev)
         )
     else:
@@ -293,6 +295,7 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
 
     import os
+
     from dotenv import load_dotenv
 
     load_dotenv()
@@ -315,7 +318,7 @@ if __name__ == "__main__":
 
     if result.get("knowledge_context"):
         kc = KnowledgeContext(**result["knowledge_context"])
-        print(f"Search successful!")
+        print("Search successful!")
         print(f"Query: {kc.query}")
         print(f"Results: {len(kc.results)} items")
         print(f"\nSynthesized Knowledge:\n{kc.synthesized_knowledge}")

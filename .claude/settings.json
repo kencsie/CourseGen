@@ -1,0 +1,18 @@
+{
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/steering-loop.sh",
+            "timeout": 180
+          }
+        ]
+      }
+    ]
+  }
+}
