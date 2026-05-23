@@ -12,7 +12,7 @@ import argparse
 import json
 import statistics
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -67,7 +67,7 @@ def _print_structural_summary(reports: list[StructuralReport]) -> None:
     n = len(reports)
     passed = sum(1 for r in reports if r.passed)
     print(f"\n{'='*50}")
-    print(f"  Structural Checks")
+    print("  Structural Checks")
     print(f"{'='*50}")
     print(f"  Pass rate:  {passed/n:.1%} ({passed}/{n})")
 
@@ -128,7 +128,7 @@ def _save_results(result: EvalResult) -> Path:
     """Save evaluation results to data/eval/ as JSON."""
     out_dir = Path("data/eval")
     out_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     path = out_dir / f"eval_{ts}.json"
     path.write_text(
         json.dumps(result.model_dump(), ensure_ascii=False, indent=2, default=str),

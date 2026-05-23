@@ -12,35 +12,36 @@ Content Generation Agents
 - content_router             — 決定下一步是 advance / retry / advance_with_failure
 """
 
+import json
+import logging
 import re
-from collections import deque, defaultdict
-from coursegen.schemas import (
-    ContentState,
-    ContextSchema,
-    NodeType,
-    ContentValidationResult,
-    SearchQueryResult,
-    SourceFilterResponse,
-    SearchResult,
-    PrerequisiteContent,
-    ConceptContent,
-    PitfallContent,
-    ComparisonContent,
-    PracticeContent,
-)
+from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor
+
+from langchain.chat_models import init_chat_model
+from langgraph.runtime import Runtime
+from tavily import TavilyClient
+
 from coursegen.prompts.content import (
-    CONTENT_PROMPTS,
     CONTENT_CRITIC_PROMPT,
+    CONTENT_PROMPTS,
     SEARCH_QUERY_GENERATION_PROMPT,
     SEARCH_RESULT_FILTER_PROMPT,
 )
-from langgraph.runtime import Runtime
-from langchain.chat_models import init_chat_model
+from coursegen.schemas import (
+    ComparisonContent,
+    ConceptContent,
+    ContentState,
+    ContentValidationResult,
+    ContextSchema,
+    PitfallContent,
+    PracticeContent,
+    PrerequisiteContent,
+    SearchQueryResult,
+    SearchResult,
+    SourceFilterResponse,
+)
 from coursegen.utils.content_cleaner import clean_search_results, select_top_sources
-from tavily import TavilyClient
-from concurrent.futures import ThreadPoolExecutor
-import json
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +259,7 @@ def content_knowledge_search_node(
     if previous_queries:
         flat_prev = [q for batch in previous_queries for q in batch]
         previous_queries_str = (
-            f"\n⚠️ Previously used queries (do NOT repeat these):\n"
+            "\n⚠️ Previously used queries (do NOT repeat these):\n"
             + "\n".join(f"- {q}" for q in flat_prev)
         )
     else:
@@ -907,6 +908,7 @@ if __name__ == "__main__":
     }
 
     import os
+
     from dotenv import load_dotenv
 
     load_dotenv()
@@ -937,7 +939,7 @@ if __name__ == "__main__":
         "content_node_retries": 0,
     }
 
-    print(f"\n--- 情境 A: comparison 節點 (spear-vs-sword) ---")
+    print("\n--- 情境 A: comparison 節點 (spear-vs-sword) ---")
     print(f"父節點: {mock_roadmap['nodes'][3]['dependencies']}")
     result_a = content_generation_node(test_state_a, MockRuntime())
     print(f"結果 keys: {list(result_a.get('content_map', {}).keys())}")
@@ -964,7 +966,7 @@ if __name__ == "__main__":
         "content_failed_nodes": ["env-attributes-intro"],
     }
 
-    print(f"\n--- 情境 B: practice 節點 (survival-challenge), 有失敗的父節點 ---")
+    print("\n--- 情境 B: practice 節點 (survival-challenge), 有失敗的父節點 ---")
     print(f"父節點: {mock_roadmap['nodes'][7]['dependencies']}")
     print(f"失敗節點: {test_state_b['content_failed_nodes']}")
     result_b = content_generation_node(test_state_b, MockRuntime())
@@ -994,7 +996,7 @@ if __name__ == "__main__":
         "content_node_retries": 0,
     }
 
-    print(f"\n--- 情境 C: prerequisite 節點 (pre-check), 無父節點 ---")
+    print("\n--- 情境 C: prerequisite 節點 (pre-check), 無父節點 ---")
     result_c = content_generation_node(test_state_c, MockRuntime())
     print(f"結果 keys: {list(result_c.get('content_map', {}).keys())}")
     if result_c.get("content_map", {}).get("pre-check"):

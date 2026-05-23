@@ -3,9 +3,8 @@ Content renderers for 5 node types.
 """
 import re
 
-import streamlit as st
 import pandas as pd
-
+import streamlit as st
 
 _SUPERSCRIPT_DIGITS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
 

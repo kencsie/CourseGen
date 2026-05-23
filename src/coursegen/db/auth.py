@@ -8,7 +8,7 @@ on app startup.
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 from sqlalchemy.orm import Session
@@ -49,7 +49,7 @@ def verify_password(session: Session, user_id: str, password: str) -> bool:
 def create_session(session: Session, user_id: str) -> str:
     """Issue a new session token, persist it, return the token string."""
     token = secrets.token_urlsafe(32)
-    expires = datetime.now(timezone.utc) + timedelta(days=SESSION_LIFETIME_DAYS)
+    expires = datetime.now(UTC) + timedelta(days=SESSION_LIFETIME_DAYS)
     session.add(UserSession(token=token, user_id=user_id, expires_at=expires))
     return token
 
@@ -65,11 +65,11 @@ def resolve_session(session: Session, token: str) -> str | None:
     row = session.query(UserSession).filter(UserSession.token == token).first()
     if not row:
         return None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires = row.expires_at
     # Postgres returns timezone-aware; SQLite returns naive — normalize before compare
     if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
+        expires = expires.replace(tzinfo=UTC)
     if expires < now:
         session.delete(row)
         return None

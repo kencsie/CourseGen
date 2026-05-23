@@ -4,7 +4,7 @@ CRUD operations for generation records.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from coursegen.db.auth import EXAMPLE_USER_ID
 from coursegen.db.database import get_session
@@ -36,7 +36,7 @@ def save_generation(
         user_id=user_id,
         topic=topic,
         language=language,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         generation_time_sec=generation_time_sec,
         iteration_count=iteration_count,
         total_tokens=total_tokens,

@@ -2,17 +2,17 @@
 Content Cleaner — 用 markdown header 切 section + cheap LLM 移除無關 section。
 """
 
-import re
 import logging
+import re
 
 from langchain.chat_models import init_chat_model
 
-from coursegen.schemas import SearchResult, SectionRemovalResponse, SourceSelectionResponse
 from coursegen.prompts.content import (
+    AGGRESSIVE_CLEANING_PROMPT,
     RAW_CONTENT_CLEANING_PROMPT,
     SOURCE_SELECTION_PROMPT,
-    AGGRESSIVE_CLEANING_PROMPT,
 )
+from coursegen.schemas import SearchResult, SectionRemovalResponse, SourceSelectionResponse
 
 logger = logging.getLogger(__name__)
 

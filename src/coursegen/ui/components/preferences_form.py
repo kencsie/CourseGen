@@ -3,10 +3,10 @@ User preferences form component for Streamlit sidebar.
 """
 
 import streamlit as st
-from coursegen.schemas import UserPreferences, Language
+
+from coursegen.schemas import Language, UserPreferences
 from coursegen.ui.utils.browser_storage import persist_credentials
 from coursegen.ui.utils.session_state import reset_roadmap_state
-
 
 CONTENT_MODEL_PRESETS = [
     "openai/gpt-5.4",

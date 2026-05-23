@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Iterable
+from collections.abc import Iterable
 
 import streamlit as st
 from langchain.chat_models import init_chat_model
@@ -198,9 +198,8 @@ def render_node_chat(
         except Exception as e:
             logger.exception("Failed to init chat model")
             history.pop()  # roll back the user msg so they can retry
-            with messages_box:
-                with st.chat_message("assistant"):
-                    st.error(f"❌ 模型初始化失敗：{e}")
+            with messages_box, st.chat_message("assistant"):
+                st.error(f"❌ 模型初始化失敗：{e}")
             return
 
         tracker = CostTracker()
@@ -215,9 +214,8 @@ def render_node_chat(
         except Exception as e:
             logger.exception("Chat stream failed")
             history.pop()  # roll back the user msg
-            with messages_box:
-                with st.chat_message("assistant"):
-                    st.error(f"❌ 回答失敗：{e}")
+            with messages_box, st.chat_message("assistant"):
+                st.error(f"❌ 回答失敗：{e}")
             return
 
         # st.write_stream returns the joined string when given a generator

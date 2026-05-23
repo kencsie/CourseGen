@@ -3,7 +3,7 @@ History sidebar component for browsing saved generation records.
 """
 import streamlit as st
 
-from coursegen.db.crud import list_generations, load_generation, delete_generation
+from coursegen.db.crud import delete_generation, list_generations, load_generation
 
 
 def render_history_sidebar() -> None:

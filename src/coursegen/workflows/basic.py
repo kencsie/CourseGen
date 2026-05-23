@@ -1,20 +1,21 @@
-from coursegen.schemas import Language, UserPreferences
 import os
-from coursegen.agents.roadmap import roadmap_node
-from coursegen.agents.knowledge_search import knowledge_search_node
-from coursegen.agents.critic import roadmap_critic_node
+
+from langgraph.graph import START, StateGraph
+from langgraph.runtime import Runtime
+
 from coursegen.agents.content import (
-    content_planning_node,
-    content_knowledge_search_node,
-    content_generation_node,
-    content_critic_node,
-    content_router,
     content_advance_node,
+    content_critic_node,
+    content_generation_node,
+    content_knowledge_search_node,
+    content_planning_node,
+    content_router,
     content_should_continue,
 )
-from coursegen.schemas import AppState, RoadmapState, ContentState, ContextSchema
-from langgraph.graph import StateGraph, START
-from langgraph.runtime import Runtime
+from coursegen.agents.critic import roadmap_critic_node
+from coursegen.agents.knowledge_search import knowledge_search_node
+from coursegen.agents.roadmap import roadmap_node
+from coursegen.schemas import AppState, ContentState, ContextSchema, Language, RoadmapState, UserPreferences
 
 
 def to_mermaid(roadmap_data):
@@ -112,10 +113,11 @@ builder.add_edge("roadmap", "content")
 graph = builder.compile()
 
 if __name__ == "__main__":
-    from langfuse.langchain import CallbackHandler
-    from dotenv import load_dotenv
-    import logging
     import json
+    import logging
+
+    from dotenv import load_dotenv
+    from langfuse.langchain import CallbackHandler
 
     logging.basicConfig(
         level=logging.INFO,
