@@ -25,3 +25,47 @@ dependencies = [
     "psycopg2-binary>=2.9.0",
     "bcrypt>=4.0.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9.0",
+    "ty>=0.0.1a1",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src"]
+extend-exclude = [".venv", "data", "notebook"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "B008",   # function call in default arg — Pydantic `Field(...)` 與 LangChain 大量使用
+    "SIM108", # ternary 改寫 — 不一定更可讀
+    "SIM102", # 巢狀 if 合併 — 既有寫法保留
+    "UP042",  # (str, Enum) — codebase 慣例，未轉 StrEnum
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/coursegen/prompts/*.py" = ["E501"]   # LLM prompt 不該被斷行
+"src/coursegen/schemas.py" = ["E501"]      # Pydantic Field description 通常會長
+"src/coursegen/eval/llm_judge.py" = ["E501"]   # 內含 inline LLM judge prompt
+"src/coursegen/agents/content.py" = ["E501"]   # 內含 inline LLM prompt
+"src/coursegen/ui/components/node_chat.py" = ["E501"]
+"src/coursegen/ui/components/roadmap_visualizer.py" = ["E741"]
+"src/coursegen/ui/app.py" = ["E402"]       # .env 必須在 import 前載入
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ty.src]
+include = ["src"]
