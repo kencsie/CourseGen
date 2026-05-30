@@ -169,7 +169,6 @@ def render_node_detail(
     # Close button
     st.markdown("---")
     if st.button("❌ 關閉", use_container_width=True):
-        st.session_state._dialog_dismissed = st.session_state.selected_node
         st.session_state.selected_node = None
         st.rerun()
 

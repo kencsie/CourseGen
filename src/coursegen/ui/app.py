@@ -562,32 +562,28 @@ def render_main_content():
         st.session_state._dialog_was_rendered = False
 
         # DAG full-width rendering
-        selected_node = render_roadmap_graph(
+        selected_node, click_ts = render_roadmap_graph(
             st.session_state.roadmap, st.session_state.node_progress
         )
 
-        # Detect outside-click dismissal:
-        # dialog was open last render, selected_node still set,
-        # and no internal dialog button triggered this rerun.
+        # Detect ESC / outside-click dismissal: the dialog was open last render,
+        # selected_node is still set, and no internal dialog button caused this
+        # rerun. (Streamlit gives no dismiss callback, so we infer it.)
         if (
             was_dialog_open
             and st.session_state.selected_node
             and not st.session_state._dialog_internal_action
         ):
-            st.session_state._dialog_dismissed = st.session_state.selected_node
             st.session_state.selected_node = None
         st.session_state._dialog_internal_action = False  # reset for next rerun
 
-        # Update selected node if clicked → rerun → trigger dialog
-        dismissed = st.session_state._dialog_dismissed
-        if selected_node and selected_node != st.session_state.selected_node:
-            # Skip if this is the node that was just dismissed (agraph retains selection)
-            if selected_node != dismissed:
-                st.session_state._dialog_dismissed = (
-                    None  # clear — a new node was clicked
-                )
-                st.session_state.selected_node = selected_node
-                st.rerun()
+        # Open the dialog on a genuine click. The frontend stamps every click with
+        # a fresh ts, so re-clicking the SAME node after closing still registers
+        # (a stale sticky value keeps the same ts and is ignored).
+        if click_ts and click_ts != st.session_state._last_click_ts:
+            st.session_state._last_click_ts = click_ts
+            st.session_state.selected_node = selected_node
+            st.rerun()
 
         # Show dialog when a node is selected
         if st.session_state.selected_node:
