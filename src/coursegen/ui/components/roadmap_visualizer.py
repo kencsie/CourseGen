@@ -9,8 +9,10 @@ so we can:
   number (re-running compute_node_numbers on the ancestor subgraph)
 - Still report click events back to Python so the detail dialog opens
 
-Public API preserved: ``render_roadmap_graph(roadmap, node_progress)`` returns
-the clicked node id (or None), same as before.
+Public API: ``render_roadmap_graph(roadmap, node_progress)`` returns
+``(clicked_node_id, click_ts)``. click_ts is the frontend's Date.now() stamp,
+which lets the caller tell a fresh click on the same node from a stale
+(sticky) component value.
 """
 from __future__ import annotations
 
@@ -113,16 +115,20 @@ def _compute_focus_levels(
 def render_roadmap_graph(
     roadmap_data: dict,
     node_progress: dict[str, dict],
-) -> str | None:
-    """Render the interactive DAG and return the clicked node id (or None)."""
+) -> tuple[str | None, int | None]:
+    """Render the interactive DAG; return (clicked_node_id, click_ts) or (None, None).
+
+    click_ts is the frontend's Date.now() stamp for the click, so the caller can
+    tell a fresh click on the same node from a stale (sticky) component value.
+    """
     if not roadmap_data or "nodes" not in roadmap_data:
         st.warning("⚠️ 沒有可用的 roadmap 資料")
-        return None
+        return None, None
 
     nodes = roadmap_data["nodes"]
     if not nodes:
         st.warning("⚠️ Roadmap 中沒有節點")
-        return None
+        return None, None
 
     # --- Header + legend (kept identical to old agraph version) ---
     st.subheader(f"📊 Roadmap: {roadmap_data.get('topic', 'Learning Path')}")
@@ -184,5 +190,5 @@ def render_roadmap_graph(
     )
 
     if isinstance(result, dict) and result.get("nodeId"):
-        return result["nodeId"]
-    return None
+        return result["nodeId"], result.get("ts")
+    return None, None

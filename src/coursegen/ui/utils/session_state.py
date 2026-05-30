@@ -40,8 +40,8 @@ def init_session_state():
         # Error handling
         "error_message": None,  # Store error messages
 
-        # Dialog dismissal tracking
-        "_dialog_dismissed": None,   # node ID of most recently dismissed dialog
+        # Dialog open/dismiss tracking
+        "_last_click_ts": None,   # ts of the DAG click we last opened a dialog for
         "_dialog_was_rendered": False,    # True if show_node_dialog() ran in the previous render
         "_dialog_internal_action": False, # True if a button inside the dialog triggered the rerun
 
