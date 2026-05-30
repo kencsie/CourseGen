@@ -33,6 +33,7 @@ class GenerationRecord(Base):
     content_map_json = Column(JSON, nullable=True)
     content_order_json = Column(JSON, nullable=True)
     content_failed_nodes_json = Column(JSON, nullable=True)
+    node_progress_json = Column(JSON, nullable=True)
 
 
 class User(Base):

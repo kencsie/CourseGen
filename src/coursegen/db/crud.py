@@ -11,6 +11,36 @@ from coursegen.db.database import get_session
 from coursegen.db.models import GenerationRecord
 
 
+def _serialize_node_progress(node_progress: dict) -> dict:
+    """Convert datetime values to ISO strings so the dict is JSON-storable."""
+    serialized: dict = {}
+    for node_id, info in node_progress.items():
+        serialized[node_id] = {
+            k: (v.isoformat() if isinstance(v, datetime) else v)
+            for k, v in info.items()
+        }
+    return serialized
+
+
+def _deserialize_node_progress(raw: dict | None) -> dict:
+    """Restore ISO-string timestamps back to datetime objects on load."""
+    if not raw:
+        return {}
+    restored: dict = {}
+    for node_id, info in raw.items():
+        entry: dict = {}
+        for k, v in info.items():
+            if k in ("started_at", "completed_at") and isinstance(v, str):
+                try:
+                    entry[k] = datetime.fromisoformat(v)
+                except ValueError:
+                    entry[k] = None
+            else:
+                entry[k] = v
+        restored[node_id] = entry
+    return restored
+
+
 def save_generation(
     *,
     user_id: str,
@@ -111,7 +141,31 @@ def load_generation(record_id: str, *, user_id: str | None) -> dict | None:
             "content_map": record.content_map_json or {},
             "content_order": record.content_order_json or [],
             "content_failed_nodes": record.content_failed_nodes_json or [],
+            "node_progress": _deserialize_node_progress(record.node_progress_json),
         }
+
+
+def update_node_progress(
+    record_id: str, node_progress: dict, *, user_id: str | None
+) -> bool:
+    """Persist per-node learning progress for a record. Returns True if updated.
+
+    user_id semantics match list_generations: an explicit value scopes the
+    update to that user; None disables the filter (admin).
+    """
+    if user_id == EXAMPLE_USER_ID:
+        raise PermissionError("example is a demo user — cannot update progress")
+    with get_session() as session:
+        query = session.query(GenerationRecord).filter(
+            GenerationRecord.id == record_id
+        )
+        if user_id is not None:
+            query = query.filter(GenerationRecord.user_id == user_id)
+        record = query.first()
+        if not record:
+            return False
+        record.node_progress_json = _serialize_node_progress(node_progress)
+        return True
 
 
 def delete_generation(record_id: str, *, user_id: str | None) -> bool:
