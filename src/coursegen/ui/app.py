@@ -583,6 +583,7 @@ def render_main_content():
         if click_ts and click_ts != st.session_state._last_click_ts:
             st.session_state._last_click_ts = click_ts
             st.session_state.selected_node = selected_node
+            st.session_state.chat_open = False  # each node opens with chat collapsed
             st.rerun()
 
         # Show dialog when a node is selected

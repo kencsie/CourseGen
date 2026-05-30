@@ -10,6 +10,46 @@ from coursegen.ui.components.node_chat import render_node_chat
 from coursegen.ui.utils.node_numbering import compute_node_numbers
 
 
+def _inject_chat_panel_css(chat_open: bool) -> None:
+    """Style the round rainbow-bordered chat toggle; widen the dialog when open.
+
+    Targets only the toggle via Streamlit's per-key wrapper class
+    (.st-key-chat_fab, available since 1.39). Right-alignment uses flex (robust
+    across the dialog DOM) rather than absolute positioning.
+    """
+    css = [
+        "<style>",
+        # right-align + float the toggle near the dialog bottom
+        ".st-key-chat_fab{",
+        "  position:sticky;bottom:1.25rem;z-index:1000;",
+        "  display:flex;justify-content:flex-end;pointer-events:none;",
+        "}",
+        # round button with a rainbow gradient ring (double-background clip trick)
+        ".st-key-chat_fab button{",
+        "  pointer-events:auto;",
+        "  width:3.5rem;height:3.5rem;min-height:3.5rem;border-radius:50%;padding:0;",
+        "  display:flex;align-items:center;justify-content:center;",
+        "  font-size:1.4rem;line-height:1;",
+        "  border:3px solid transparent;",
+        "  background-image:linear-gradient(#fff,#fff),"
+        "linear-gradient(135deg,#ff0080,#ff8c00,#ffe600,#00e676,#00b0ff,#7c4dff);",
+        "  background-origin:border-box;background-clip:padding-box,border-box;",
+        "  box-shadow:0 4px 16px rgba(0,0,0,0.22);",
+        "}",
+        ".st-key-chat_fab button:hover{",
+        "  transform:translateY(-2px);",
+        "  box-shadow:0 7px 22px rgba(124,77,255,0.45);",
+        "}",
+    ]
+    if chat_open:
+        css.append(
+            'div[data-testid="stDialog"] div[role="dialog"]'
+            "{max-width:90vw;width:90vw;}"
+        )
+    css.append("</style>")
+    st.markdown("\n".join(css), unsafe_allow_html=True)
+
+
 def get_node_data(roadmap_data: dict, node_id: str) -> dict | None:
     """Get node data from roadmap by node ID."""
     nodes = roadmap_data.get("nodes", [])
@@ -138,35 +178,56 @@ def render_node_detail(
                 st.session_state._dialog_internal_action = True
                 st.rerun()
 
-    # Tabs: teaching content + per-node AI chat
+    # Teaching content + per-node AI chat. The chat is opt-in via a floating
+    # button so the content keeps its full width by default; opening it widens
+    # the dialog and shows the chat beside the content (state: chat_open).
     st.markdown("---")
-    content_tab, chat_tab = st.tabs(["📖 教學內容", "💬 AI 助教"])
 
     failed = bool(content_failed_nodes and node_id in content_failed_nodes)
     content_entry = (content_map or {}).get(node_id) if content_map else None
+    chat_open = st.session_state.get("chat_open", False)
 
-    with content_tab:
+    _inject_chat_panel_css(chat_open)
+
+    def _render_teaching_content() -> None:
         if failed:
             st.warning("⚠️ 此節點的教學內容生成失敗，請嘗試重新生成 Roadmap。")
         elif content_entry:
-            node_type = node_data.get("type", "")
-            render_content(node_type, content_entry)
+            render_content(node_data.get("type", ""), content_entry)
         else:
             st.caption("尚未生成教學內容")
 
-    with chat_tab:
-        # Pass content_entry=None when failed/missing so the system prompt
-        # tells the LLM to fall back to description + parent context.
-        render_node_chat(
-            roadmap_data=roadmap_data,
-            node_id=node_id,
-            node_data=node_data,
-            node_number=node_number,
-            parent_summaries=parent_summaries,
-            content_entry=None if failed else content_entry,
-        )
+    if chat_open:
+        content_col, chat_col = st.columns([3, 2], gap="medium")
+        with content_col:
+            _render_teaching_content()
+        with chat_col:
+            # content_entry=None when failed/missing so the system prompt falls
+            # back to description + parent context.
+            render_node_chat(
+                roadmap_data=roadmap_data,
+                node_id=node_id,
+                node_data=node_data,
+                node_number=node_number,
+                parent_summaries=parent_summaries,
+                content_entry=None if failed else content_entry,
+            )
+    else:
+        _render_teaching_content()
 
-    # Close button
+    # Floating round toggle: 💬 opens the tutor, ✕ collapses it. Mark the rerun
+    # as an internal dialog action so the dismissal heuristic keeps the dialog
+    # open (see render_main_content in app.py).
+    if st.button(
+        "✕" if chat_open else "💬",
+        key="chat_fab",
+        help="收起 AI 助教" if chat_open else "開啟 AI 助教",
+    ):
+        st.session_state.chat_open = not chat_open
+        st.session_state._dialog_internal_action = True
+        st.rerun()
+
+    # Close button (closes the whole dialog)
     st.markdown("---")
     if st.button("❌ 關閉", use_container_width=True):
         st.session_state.selected_node = None
