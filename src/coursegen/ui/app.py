@@ -29,7 +29,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 # Langfuse observability
 from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
 
-from coursegen.db.crud import save_generation
+from coursegen.db.crud import save_generation, update_node_progress
 
 # Import database
 from coursegen.db.database import init_db
@@ -343,7 +343,7 @@ def generate_roadmap(question: str, preferences: UserPreferences):
 
 
 def handle_status_update(node_id: str, new_status: str):
-    """Handle node status update (session state only)."""
+    """Update node status in session, and persist it when a saved record is active."""
     # Update session state
     if node_id not in st.session_state.node_progress:
         st.session_state.node_progress[node_id] = {}
@@ -356,6 +356,18 @@ def handle_status_update(node_id: str, new_status: str):
     elif new_status == "not_started":
         st.session_state.node_progress[node_id]["started_at"] = None
         st.session_state.node_progress[node_id]["completed_at"] = None
+
+    # Persist for logged-in users with a saved record (demo mode is read-only)
+    record_id = st.session_state.get("current_record_id")
+    if record_id and not st.session_state.get("read_only"):
+        try:
+            update_node_progress(
+                record_id,
+                st.session_state.node_progress,
+                user_id=st.session_state.nickname,
+            )
+        except Exception:
+            logging.getLogger(__name__).exception("Failed to persist node progress")
 
 
 def render_sidebar():
