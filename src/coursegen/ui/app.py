@@ -52,6 +52,10 @@ from coursegen.ui.utils.log_bridge import uninstall as uninstall_log_bridge
 
 # Import utilities
 from coursegen.ui.utils.session_state import init_session_state, reset_roadmap_state
+from coursegen.ui.utils.study_estimate import (
+    estimate_study_minutes,
+    format_duration_range,
+)
 from coursegen.workflows.basic import graph
 
 # Log anchors: regex patterns matched against live log messages to infer the
@@ -463,20 +467,58 @@ def render_sidebar():
 
     st.sidebar.markdown("---")
 
-    # Display generation metadata if available
-    if st.session_state.generation_metadata:
-        st.sidebar.header("📊 生成狀態")
-        metadata = st.session_state.generation_metadata
+    # Learning status — shown for any loaded roadmap (freshly generated or from history)
+    roadmap = st.session_state.get("roadmap")
+    if roadmap and roadmap.get("nodes"):
+        nodes = roadmap["nodes"]
+        content_map = st.session_state.get("content_map", {})
+        node_progress = st.session_state.get("node_progress", {})
+        completed = sum(
+            1 for p in node_progress.values() if p.get("status") == "completed"
+        )
 
-        if metadata.get("elapsed_time") is not None:
-            st.sidebar.metric("⏱️ 生成耗時", f"{metadata['elapsed_time']:.1f}s")
+        # Shrink only the metric value font so the three stats stay compact in
+        # the sidebar (labels, ? tooltips, and layout are otherwise unchanged).
+        st.sidebar.markdown(
+            "<style>"
+            'section[data-testid="stSidebar"] [data-testid="stMetricValue"]'
+            "{font-size:1.5rem;font-weight:600;}"
+            "</style>",
+            unsafe_allow_html=True,
+        )
+        st.sidebar.header("📊 學習狀態")
+        st.sidebar.metric("📚 學習節點數", f"{len(nodes)} 個")
+        st.sidebar.metric(
+            "⏱️ 預估學習時長",
+            format_duration_range(estimate_study_minutes(nodes, content_map)),
+            help=(
+                "**依預設參數估算**的概值，實際因人而異。\n\n"
+                "依節點類型與內容項目數加總：\n"
+                "- 概念：20 + 5×重點 + 8×範例 分\n"
+                "- 練習：20 + 15×任務 分\n"
+                "- 比較：12 + 3×維度 分\n"
+                "- 踩雷：10 + 4×陷阱 + 2×警示 分\n"
+                "- 先備：15 + 5×補救 分\n\n"
+                "顯示範圍 = 點估計 ×0.8（快）～×1.2（慢）。"
+            ),
+        )
+        st.sidebar.metric("🧭 學習進度", f"{completed} / {len(nodes)} 已完成")
+        st.sidebar.caption("ℹ️ 學習時長依**預設參數**估算，僅供參考。")
 
-        if metadata.get("total_tokens"):
-            st.sidebar.metric("🪙 Token 用量", f"{metadata['total_tokens']:,}")
-
-        cost = metadata.get("total_cost_usd")
-        if cost is not None:
-            st.sidebar.metric("💰 估計成本", f"${cost:.4f}")
+        # Backend generation stats — secondary detail, tucked into an expander
+        metadata = st.session_state.get("generation_metadata") or {}
+        if any(
+            metadata.get(k) is not None
+            for k in ("elapsed_time", "total_tokens", "total_cost_usd")
+        ):
+            with st.sidebar.expander("⚙️ 生成資訊（進階）", expanded=False):
+                if metadata.get("elapsed_time") is not None:
+                    st.metric("⏱️ 生成耗時", f"{metadata['elapsed_time']:.1f}s")
+                if metadata.get("total_tokens"):
+                    st.metric("🪙 Token 用量", f"{metadata['total_tokens']:,}")
+                cost = metadata.get("total_cost_usd")
+                if cost is not None:
+                    st.metric("💰 估計成本", f"${cost:.4f}")
 
     st.sidebar.markdown("---")
 
