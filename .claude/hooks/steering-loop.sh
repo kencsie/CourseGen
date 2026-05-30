@@ -26,13 +26,18 @@ fi
 # ── [2/2] pytest（偵測到測試才跑） ───────────────────────────────────
 echo "[2/2] pytest..."
 if [ -d "tests" ] || find . -maxdepth 4 \( -path ./.venv -o -path ./.git \) -prune -o -name "test_*.py" -print 2>/dev/null | grep -q .; then
-  if ! PYTEST_OUT=$(uv run pytest 2>&1); then
+  PYTEST_OUT=$(uv run pytest 2>&1)
+  PYTEST_CODE=$?
+  # exit 5 = no tests collected（空 tests/ 目錄）→ 視同「無對應測試」，不 block
+  if [ "$PYTEST_CODE" -ne 0 ] && [ "$PYTEST_CODE" -ne 5 ]; then
     FAILURES="${FAILURES}━━━ PYTEST FAILED ━━━
 ${PYTEST_OUT}
 
 修法：依測試輸出修正；若新增的程式碼缺對應測試，補上。
 
 "
+  elif [ "$PYTEST_CODE" -eq 5 ]; then
+    echo "  ⊘ tests/ 無可收集的測試，略過"
   fi
 else
   echo "  ⊘ 未偵測到 test 檔，略過"
@@ -44,7 +49,11 @@ if [ -z "$FAILURES" ]; then
   exit 0
 fi
 
-# block AI 結束 turn，把錯誤訊息塞進 additionalContext
+# 雙通道輸出：
+#   stderr → Claude Code 顯示給使用者的 block reason（exit 2 語意）
+#   stdout JSON → additionalContext 回灌給 AI 的下一回合
+echo "$FAILURES" >&2
+
 jq -n --arg failures "$FAILURES" '{
   "decision": "block",
   "reason": "Steering Loop validation failed",
