@@ -44,6 +44,7 @@ def init_session_state():
         "_last_click_ts": None,   # ts of the DAG click we last opened a dialog for
         "_dialog_was_rendered": False,    # True if show_node_dialog() ran in the previous render
         "_dialog_internal_action": False, # True if a button inside the dialog triggered the rerun
+        "chat_open": False,       # AI tutor panel open beside the node content?
 
         # Per-node AI chat — keyed by f"{record_id}::{node_id}" so different
         # generations don't bleed; session-only, never persisted to DB.
