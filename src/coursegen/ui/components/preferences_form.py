@@ -176,8 +176,13 @@ def render_preferences_form() -> tuple[str, UserPreferences]:
     question = st.sidebar.text_input(
         "學習主題",
         value=default_question,
-        placeholder="例如：如何學習 React.js？",
-        help="請輸入您想學習的主題或技術",
+        placeholder="例如：如何學習 Harness Engineering",
+        help=(
+            "輸入你想學的主題，一個關鍵詞或一句話都可以，系統會自動從中**擷取核心關鍵字**去搜尋資料。\n\n"
+            "✅ 例：「Harness Engineering」、「桌球殺球技巧」、「React 入門」\n\n"
+            "💡 版本號或專有名詞很重要的話請寫出來，會被完整保留"
+            "（例：「Minecraft 1.21.11」不會被簡化成 1.21）。"
+        ),
     )
 
     # Language preference
