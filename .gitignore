@@ -15,3 +15,6 @@ wheels/
 /data
 
 .claude/settings.local.json
+
+# Local-only docs（轉折期暫存：對話紀錄/計劃，agent 讀得到但不進 git）
+docs/_local/
