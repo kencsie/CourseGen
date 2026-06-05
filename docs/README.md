@@ -1,44 +1,37 @@
 # docs/ — 文件結構與維護規則
 
-這份檔是 docs/ 的「地圖」：每種文件放什麼、誰負責、何時更新。
-它本身就是一條規則——新增任何文件前，先確認它在下面的分類裡有位置。
+這份檔是 docs/ 的「地圖」：每個檔（資料夾）放什麼、什麼時候要動它。
+新增任何文件前，先確認它在下面的分類裡有位置。
 
-## 核心原則
+## 1. 檔案介紹
 
-1. **分類依據 = 壽命 × 讀者 × 更新觸發 × 熱/冷路徑**，不是「它是不是文件」。
-   - 熱路徑（agent 每次執行都載入）→ `CLAUDE.md`：只放「做什麼」，為 token 與祈使清晰最佳化。
-   - 冷路徑（要懂「為什麼」才翻）→ `design-docs/`、`ARCHITECTURE.md`：為完整性最佳化。
-2. **想法 vs 機制**（決定東西去哪、誰來驗）：
-   - 「想法 / 設計信念」（人類判斷得了的）→ `design-docs/`、`ARCHITECTURE.md`，**人讀人驗**。
-   - 「內部實作機制」（人類難一眼驗證的）→ `tests/`，**綠燈＝機器替你證明**。
-   - 散文是「主張」、測試是「證明」；對你無法親自驗證的東西，只有證明可信。
-3. **invariant 逐漸浮現，不一次列舉**：harness 是會長大的活系統。最可靠的發現器是 bug——
-   修一個 bug 就補一條測試，讓它永不復發。別追求「一次掃出完整清單」。
-4. **先建後刪**：要把某條 invariant 從 `CLAUDE.md` 的散文移除，必須先有它的測試（機制）
-   與/或 design-doc（想法）就位。別在硬閘門架好前拆掉軟閘門。
+```
+CourseGen/
+├── CLAUDE.md                 # 程式碼地圖、Steering Loop、文件索引
+├── ARCHITECTURE.md           # 內部架構與設計理由
+├── docs/
+│   ├── README.md             # docs 地圖與維護規則
+│   ├── design-docs/          # 設計信念與ADR（架構決策紀錄）
+│   │   ├── core-beliefs.md
+│   │   └── 00xx-*.md
+│   ├── exec-plans/           # 進行中與完成的計劃
+│   │   ├── active/
+│   │   └── completed/
+│   ├── generated/            # 程式自動生成的圖與文件
+│   └── pic/                  # README 截圖（15 張）
+└── tests/                    # invariant 的自動化驗證
+```
 
-## 結構（live = 已存在；待建 = 浮現時再建，不預先放空檔）
+## 2. 更新時機
 
-| 路徑 | 放什麼 | 更新觸發 | 狀態 |
-|---|---|---|---|
-| `CLAUDE.md` | agent 每次執行的須知：程式碼地圖、Steering Loop、文件索引 | 流程/索引改變 | live |
-| `ARCHITECTURE.md` | 內部架構、跨檔結構、為什麼這樣接 | 架構改變 | live（已種：節點型別系統） |
-| `docs/README.md` | 本檔：docs 地圖與維護規則 | 結構/規則改變 | live |
-| `docs/design-docs/core-beliefs.md` | 跨切面通用信念（reasoning-first、config 集中…） | 人類決策改變 | 待建（第一條信念浮現時） |
-| `docs/design-docs/00xx-*.md` | 個別重大決策 ADR（脈絡/取捨/後果/日期） | 不改，新增推翻舊的 | 待建 |
-| `docs/exec-plans/{active,completed}/` | 進行中 / 完成的執行計劃 | 開新任務 / 完成歸檔 | 待建 |
-| `docs/generated/` | 程式自動生成的圖/文件（**絕不手改**） | 由腳本生成 | 待建 |
-| `docs/pic/` | 截圖（README 用） | UI 改版 | live |
-| `tests/` | invariant 的證明（綠燈＝此刻成立） | 浮現一條補一條 | live |
-
-## 怎麼新增一條 invariant（垂直切片模板）
-
-以 #6「新增節點類型必須五處同步」為**已完成範例**：
-
-1. **機制 → 測試**：`tests/test_content_type_registry.py`，比對真相來源 vs 登記表的鍵。
-2. **驗證會咬**：故意弄壞一處 → 看它紅 → 改回 → 綠（新測試一定要先看過紅，否則它只是「沒被驗證過的綠」）。
-3. **想法 → design-doc**：把「為什麼」寫進 `ARCHITECTURE.md`（架構性）或 `design-docs/`（信念性）。
-4. **收割**：兩半就位後，才把它從 `CLAUDE.md`「修改細節」散文移除，改由「文件索引」指過去。
-
-其餘還在 `CLAUDE.md`「修改細節」裡的規則（reasoning-first、no-getenv、user_id、eval…），
-都照這個模板，**等它們各自浮現/被需要時**再一條條遷移——不必現在一次做完。
+| 路徑 | 什麼時候動它 |
+|---|---|
+| `CLAUDE.md` | Steering Loop 流程或文件索引改變 |
+| `ARCHITECTURE.md` | 內部架構 / 跨檔接法改變 |
+| `docs/README.md` | docs 結構或維護規則改變 |
+| `docs/design-docs/core-beliefs.md` | 通用信念被人類決策改變 |
+| `docs/design-docs/00xx-*.md` | 不改舊的；有新決策推翻舊決策時，新增一份 |
+| `docs/exec-plans/` | 開新任務（放 active）→ 完成後歸檔（移 completed） |
+| `docs/generated/` | 由生成腳本更新 |
+| `docs/pic/` | UI 改版、要換截圖時 |
+| `tests/` | 浮現一條 invariant 就補一條測試 |
