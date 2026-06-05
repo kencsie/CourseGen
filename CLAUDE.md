@@ -54,9 +54,10 @@ LangGraph + Pydantic + Streamlit 多代理系統。Python 3.12，UI 與 workflow
 | 想知道 | 去哪 | 誰保證對不對 |
 |---|---|---|
 | docs/ 結構與更新規則 | `docs/README.md` | 人類維護 |
-| 內部架構 / 設計理由 | `ARCHITECTURE.md`、`docs/design-docs/`（待建） | 人類審核 |
+| 整體架構（怎麼接） | README「Architecture Overview」、`src/`（見上方程式碼地圖） | 程式碼本身 |
+| 設計信念 / 決策理由 | `docs/design-docs/`（待建） | 人類審核 |
 | invariant 的契約與保證 | `tests/`（綠燈＝證明） | 機器（pytest） |
 | 進行中 / 完成的計劃 | `docs/exec-plans/`（待建） | — |
 
 **已遷移範例**：「新增節點類型必須五處同步」已從上面「修改細節」移走——
-intent 見 `ARCHITECTURE.md` 的「節點型別系統」，證明見 `tests/test_content_type_registry.py`。
+intent 與證明都在 `tests/test_content_type_registry.py`：docstring 說明為什麼五處要同步，綠燈＝五處一致。

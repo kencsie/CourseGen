@@ -8,7 +8,6 @@
 ```
 CourseGen/
 ├── CLAUDE.md                 # 程式碼地圖、Steering Loop、文件索引
-├── ARCHITECTURE.md           # 內部架構與設計理由
 ├── docs/
 │   ├── README.md             # docs 地圖與維護規則
 │   ├── design-docs/          # 設計信念與ADR（架構決策紀錄）
@@ -27,7 +26,6 @@ CourseGen/
 | 路徑 | 什麼時候動它 |
 |---|---|
 | `CLAUDE.md` | Steering Loop 流程或文件索引改變 |
-| `ARCHITECTURE.md` | 內部架構 / 跨檔接法改變 |
 | `docs/README.md` | docs 結構或維護規則改變 |
 | `docs/design-docs/core-beliefs.md` | 通用信念被人類決策改變 |
 | `docs/design-docs/00xx-*.md` | 不改舊的；有新決策推翻舊決策時，新增一份 |
