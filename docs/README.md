@@ -15,6 +15,7 @@ CourseGen/
 │   │   ├── core-beliefs.md
 │   │   └── 00xx-*.md
 │   ├── exec-plans/           # 進行中與完成的計劃
+│   │   ├── README.md         # 計劃模板與維護規則
 │   │   ├── active/
 │   │   └── completed/
 │   ├── generated/            # 程式自動生成的圖與文件
