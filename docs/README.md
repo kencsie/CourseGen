@@ -7,6 +7,7 @@
 
 ```
 CourseGen/
+├── README.md                 # 對外說明：功能、架構概覽、使用方式
 ├── CLAUDE.md                 # 程式碼地圖、Steering Loop、文件索引
 ├── docs/
 │   ├── README.md             # docs 地圖與維護規則
@@ -25,6 +26,7 @@ CourseGen/
 
 | 路徑 | 什麼時候動它 |
 |---|---|
+| `README.md` | 功能、架構或使用方式改變 |
 | `CLAUDE.md` | Steering Loop 流程或文件索引改變 |
 | `docs/README.md` | docs 結構或維護規則改變 |
 | `docs/design-docs/core-beliefs.md` | 通用信念被人類決策改變 |
